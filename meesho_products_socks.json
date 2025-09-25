@@ -1,0 +1,92 @@
+{
+  "query": "socks",
+  "search_url": "https://www.meesho.com/search?q=socks",
+  "total_products": 10,
+  "products": [
+    {
+      "title": "9% off",
+      "link": "",
+      "price": "₹124",
+      "rating": "4.0",
+      "image_url": "https://images.meesho.com/images/products/472038494/okw85_512.webp?width=360",
+      "category": "Fashion"
+    },
+    {
+      "title": "Casual Latest Men Socks",
+      "link": "",
+      "price": "₹111",
+      "rating": "4.2",
+      "image_url": "https://images.meesho.com/images/products/372274302/hgbsq_512.webp?width=360",
+      "brand": "Latest",
+      "category": "Fashion"
+    },
+    {
+      "title": "7% off",
+      "link": "",
+      "price": "₹104",
+      "rating": "4.0",
+      "image_url": "https://images.meesho.com/images/products/425509829/ykkrs_512.webp?width=360",
+      "category": "Fashion"
+    },
+    {
+      "title": "6% off",
+      "link": "",
+      "price": "₹102",
+      "rating": "4.0",
+      "image_url": "https://images.meesho.com/images/products/531686766/dzi85_512.webp?width=360",
+      "category": "Fashion"
+    },
+    {
+      "title": "16% off",
+      "link": "",
+      "price": "₹122",
+      "rating": "4.1",
+      "image_url": "https://images.meesho.com/images/products/410942153/qh0gb_512.webp?width=360",
+      "brand": "16%",
+      "category": "Fashion"
+    },
+    {
+      "title": "7% off",
+      "link": "",
+      "price": "₹112",
+      "rating": "3.8",
+      "image_url": "https://images.meesho.com/images/products/591326103/qovzc_512.webp?width=360",
+      "category": "Fashion"
+    },
+    {
+      "title": "Casual Latest Men Socks",
+      "link": "",
+      "price": "₹111",
+      "rating": "4.2",
+      "image_url": "https://images.meesho.com/images/products/372274302/hgbsq_512.webp?width=360",
+      "brand": "Latest",
+      "category": "Fashion"
+    },
+    {
+      "title": "Fashionable Trendy Men Socks",
+      "link": "",
+      "price": "₹161",
+      "rating": "4.1",
+      "image_url": "https://images.meesho.com/images/products/591318893/krldx_512.webp?width=360",
+      "brand": "Trendy",
+      "category": "Fashion"
+    },
+    {
+      "title": "12% off",
+      "link": "",
+      "price": "₹149",
+      "rating": "4.3",
+      "image_url": "https://images.meesho.com/images/products/440890833/bk5mh_512.webp?width=360",
+      "brand": "12%",
+      "category": "Fashion"
+    },
+    {
+      "title": "6% off",
+      "link": "",
+      "price": "₹115",
+      "rating": "4.0",
+      "image_url": "https://images.meesho.com/images/products/591327970/ls2mz_512.webp?width=360",
+      "category": "Fashion"
+    }
+  ]
+}

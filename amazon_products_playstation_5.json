@@ -1,0 +1,40 @@
+{
+  "query": "playstation 5",
+  "search_url": "https://www.amazon.in/s?k=playstation+5&ref=nb_sb_noss",
+  "total_products": 8,
+  "products": [
+    {
+      "price": "49,990",
+      "rating": "578"
+    },
+    {
+      "price": "44,990",
+      "rating": "515"
+    },
+    {
+      "price": "49,990",
+      "rating": "578"
+    },
+    {
+      "price": "44,990",
+      "rating": "515"
+    },
+    {
+      "price": "5,680",
+      "rating": "4,263",
+      "reviews": "4,263"
+    },
+    {
+      "price": "5,699",
+      "rating": "952"
+    },
+    {
+      "price": "1,689",
+      "reviews": "PEGI Rating: Ages 18 & Over"
+    },
+    {
+      "price": "2,399",
+      "reviews": "PEGI Rating: Ages 3 & Over"
+    }
+  ]
+}

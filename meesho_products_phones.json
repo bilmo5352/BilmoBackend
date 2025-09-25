@@ -1,0 +1,84 @@
+{
+  "query": "phones",
+  "search_url": "https://www.meesho.com/search?q=phones",
+  "total_products": 10,
+  "products": [
+    {
+      "title": "29% off",
+      "link": "",
+      "price": "₹9,999",
+      "image_url": "https://images.meesho.com/images/products/602412045/z2cmu_512.webp?width=360",
+      "category": "Fashion"
+    },
+    {
+      "title": "23% off",
+      "link": "",
+      "price": "₹16,999",
+      "rating": "3.9",
+      "image_url": "https://images.meesho.com/images/products/582839164/ddo1v_512.webp?width=360",
+      "category": "Fashion"
+    },
+    {
+      "title": "31% off",
+      "link": "",
+      "price": "₹10,999",
+      "rating": "3.9",
+      "image_url": "https://images.meesho.com/images/products/582839150/mo0h2_512.webp?width=360",
+      "category": "Fashion"
+    },
+    {
+      "title": "24% off",
+      "link": "",
+      "price": "₹1,443",
+      "image_url": "https://images.meesho.com/images/products/602412022/07wma_512.webp?width=360",
+      "category": "Fashion"
+    },
+    {
+      "title": "23% off",
+      "link": "",
+      "price": "₹9,299",
+      "rating": "4.8",
+      "image_url": "https://images.meesho.com/images/products/587127752/bpggw_512.webp?width=360",
+      "category": "Fashion"
+    },
+    {
+      "title": "25% off",
+      "link": "",
+      "price": "₹14,999",
+      "rating": "4.8",
+      "image_url": "https://images.meesho.com/images/products/565092424/qtpar_512.webp?width=360",
+      "category": "Fashion"
+    },
+    {
+      "title": "22% off",
+      "link": "",
+      "price": "₹17,999",
+      "rating": "3.9",
+      "image_url": "https://images.meesho.com/images/products/564641702/apsf6_512.webp?width=360",
+      "category": "Fashion"
+    },
+    {
+      "title": "33% off",
+      "link": "",
+      "price": "₹13,499",
+      "rating": "3.9",
+      "image_url": "https://images.meesho.com/images/products/583155799/t1prh_512.webp?width=360",
+      "category": "Fashion"
+    },
+    {
+      "title": "28% off",
+      "link": "",
+      "price": "₹37,999",
+      "rating": "3.7",
+      "image_url": "https://images.meesho.com/images/products/582982193/ygfsb_512.webp?width=360",
+      "category": "Fashion"
+    },
+    {
+      "title": "12% off",
+      "link": "",
+      "price": "₹2,199",
+      "image_url": "https://images.meesho.com/images/products/594739476/bmcw1_512.webp?width=360",
+      "category": "Fashion"
+    }
+  ]
+}

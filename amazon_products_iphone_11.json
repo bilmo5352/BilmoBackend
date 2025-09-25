@@ -1,0 +1,38 @@
+{
+  "query": "iphone 11",
+  "search_url": "https://www.amazon.in/s?k=iphone+11&ref=nb_sb_noss",
+  "total_products": 8,
+  "products": [
+    {
+      "price": "47,999",
+      "reviews": "5,102"
+    },
+    {
+      "price": "63,999",
+      "reviews": "32,968"
+    },
+    {
+      "price": "47,999",
+      "reviews": "5,102"
+    },
+    {
+      "price": "47,999",
+      "reviews": "5,102"
+    },
+    {
+      "price": "139"
+    },
+    {
+      "price": "270",
+      "reviews": "5,515"
+    },
+    {
+      "price": "43,900",
+      "reviews": "35,852"
+    },
+    {
+      "price": "499",
+      "reviews": "11,504"
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "query": "iphone 12",
+  "search_url": "https://www.amazon.in/s?k=iphone+12&ref=nb_sb_noss",
+  "total_products": 8,
+  "products": [
+    {
+      "price": "54,900",
+      "rating": "32,968",
+      "reviews": "32,968"
+    },
+    {
+      "price": "47,999",
+      "rating": "5,085",
+      "reviews": "5,085"
+    },
+    {
+      "price": "63,999",
+      "rating": "32,968",
+      "reviews": "32,968"
+    },
+    {
+      "price": "54,900",
+      "rating": "32,968",
+      "reviews": "32,968"
+    },
+    {
+      "price": "47,999",
+      "rating": "5,085",
+      "reviews": "5,085"
+    },
+    {
+      "price": "66,990",
+      "rating": "1,467",
+      "reviews": "1,467"
+    },
+    {
+      "price": "47,999",
+      "rating": "5,085",
+      "reviews": "5,085"
+    },
+    {
+      "price": "66,990",
+      "rating": "1,467",
+      "reviews": "1,467"
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "query": "shoes",
+  "search_url": "https://www.meesho.com/search?q=shoes",
+  "total_products": 3,
+  "products": [
+    {
+      "name": "17% off",
+      "price": "₹266",
+      "brand": "",
+      "category": "Fashion",
+      "rating": "3.8",
+      "link": "",
+      "images": [
+        {
+          "url": "https://images.meesho.com/images/products/409149626/yq0vm_512.webp?width=360",
+          "alt": "",
+          "thumbnail": "https://images.meesho.com/images/products/409149626/yq0vm_512.webp?width=360"
+        }
+      ]
+    },
+    {
+      "name": "15% off",
+      "price": "₹270",
+      "brand": "",
+      "category": "Fashion",
+      "rating": "3.9",
+      "link": "",
+      "images": [
+        {
+          "url": "https://images.meesho.com/images/products/467980924/hu2pl_512.webp?width=360",
+          "alt": "",
+          "thumbnail": "https://images.meesho.com/images/products/467980924/hu2pl_512.webp?width=360"
+        }
+      ]
+    },
+    {
+      "name": "Modern Women Casual Shoes",
+      "price": "₹351",
+      "brand": "Modern",
+      "category": "Shoe",
+      "rating": "4.1",
+      "link": "",
+      "images": [
+        {
+          "url": "https://images.meesho.com/images/products/564677352/fgnis_512.webp?width=360",
+          "alt": "",
+          "thumbnail": "https://images.meesho.com/images/products/564677352/fgnis_512.webp?width=360"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "query": "nike shoes",
+  "search_url": "https://www.myntra.com/nike-shoes?rawQuery=nike%20shoes",
+  "total_products": 8,
+  "products": [
+    {
+      "link": "https://www.myntra.com/casual-shoes/nike/nike-mens-jordan-flight-court-shoes/34951431/buy",
+      "brand": "Nike",
+      "title": "Men's Jordan Flight Court Shoe",
+      "price": "Rs. 8695"
+    },
+    {
+      "link": "https://www.myntra.com/sports-shoes/nike/nike-air-jordan-xxxix-pf-sol-basketball-shoes/30249516/buy",
+      "brand": "Nike",
+      "title": "Nike\nSizes: UK7\nRs. 18395",
+      "price": "Rs. 18395"
+    },
+    {
+      "link": "https://www.myntra.com/sports-shoes/nike/nike--women-legend-essential-3-next-nature-training-shoes/19935336/buy",
+      "brand": "Nike",
+      "title": "Women Training or Gym Shoes",
+      "price": "Rs. 2497",
+      "original_price": "Rs. 4995",
+      "discount": "(50% OFF)"
+    },
+    {
+      "link": "https://www.myntra.com/sports-shoes/nike/nike-men-legend-essential-3-next-nature-workout-shoes/25503840/buy",
+      "brand": "Nike",
+      "title": "Men Next Nature Workout Shoes",
+      "price": "Rs. 2499",
+      "original_price": "Rs. 4995",
+      "discount": "(49% OFF)"
+    },
+    {
+      "link": "https://www.myntra.com/sports-shoes/nike/nike-tatum-2-pf-men-colorblocked-lace-ups-marking-round-toe-basketball-shoes/30249515/buy",
+      "brand": "Nike",
+      "title": "Tatum 2 PF Basketball Shoes",
+      "price": "Rs. 11495"
+    },
+    {
+      "link": "https://www.myntra.com/sports-shoes/nike/nike-womens-legend-essential-3-next-nature-workout-shoes/34807146/buy",
+      "brand": "Nike",
+      "title": "3 Next Nature Workout Shoes",
+      "price": "Rs. 2497",
+      "original_price": "Rs. 4995",
+      "discount": "(50% OFF)"
+    },
+    {
+      "link": "https://www.myntra.com/sports-shoes/nike/nike-legend-essential-3-next-nature-men-workout-shoes/34955475/buy",
+      "brand": "Nike",
+      "title": "3 Next Nature Workout Shoes",
+      "price": "Rs. 2997",
+      "original_price": "Rs. 4995",
+      "discount": "(40% OFF)"
+    },
+    {
+      "link": "https://www.myntra.com/casual-shoes/nike/nike-jordan-max-aura-6-mens-shoes/29973814/buy",
+      "brand": "Nike",
+      "title": "Jordan Max Aura 6 Men's Shoes",
+      "price": "Rs. 11895"
+    }
+  ]
+}

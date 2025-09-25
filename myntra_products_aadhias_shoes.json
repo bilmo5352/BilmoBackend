@@ -1,0 +1,71 @@
+{
+  "query": "aadhias shoes",
+  "search_url": "https://www.myntra.com/aadhias-shoes?rawQuery=aadhias%20shoes",
+  "total_products": 8,
+  "products": [
+    {
+      "link": "https://www.myntra.com/sports-shoes/adidas/adidas-men-vl-court-30-tennis-shoes/33945744/buy",
+      "brand": "ADIDAS",
+      "title": "Men Vl Court 3.0 Tennis Shoes",
+      "price": "Rs. 3191",
+      "original_price": "Rs. 7599",
+      "discount": "(58% OFF)"
+    },
+    {
+      "link": "https://www.myntra.com/sports-shoes/adidas/adidas-men-leather-perforated-breaknet-20-ikd-basketball-shoes/34166324/buy",
+      "brand": "ADIDAS",
+      "title": "Men Breaknet 2.0IKD Basketball",
+      "price": "Rs. 2903",
+      "original_price": "Rs. 6599",
+      "discount": "(56% OFF)"
+    },
+    {
+      "link": "https://www.myntra.com/sports-shoes/adidas/adidas-unisex-copa-pure-iii-club-football-shoes/35072154/buy",
+      "brand": "ADIDAS",
+      "title": "Unisex COPA PURE Football Shoe",
+      "price": "Rs. 2519",
+      "original_price": "Rs. 5599",
+      "discount": "(55% OFF)"
+    },
+    {
+      "link": "https://www.myntra.com/sports-shoes/adidas/adidas-kids-woven-design-gametalker-10-running-shoes/24084230/buy",
+      "brand": "ADIDAS",
+      "title": "Kids Gametalker 1.0 Run Shoes",
+      "price": "Rs. 1949",
+      "original_price": "Rs. 2999",
+      "discount": "(35% OFF)"
+    },
+    {
+      "link": "https://www.myntra.com/sports-shoes/adidas/adidas-women-response-ortholite-running-shoes/31950376/buy",
+      "brand": "ADIDAS",
+      "title": "Women Response Running Shoes",
+      "price": "Rs. 3571",
+      "original_price": "Rs. 7599",
+      "discount": "(53% OFF)"
+    },
+    {
+      "link": "https://www.myntra.com/sports-shoes/adidas/adidas-kids-woven-design-vertago-30-running-shoes/24084398/buy",
+      "brand": "ADIDAS",
+      "title": "Kids Vertago 3.0 Running Shoes",
+      "price": "Rs. 1949",
+      "original_price": "Rs. 2999",
+      "discount": "(35% OFF)"
+    },
+    {
+      "link": "https://www.myntra.com/sports-shoes/adidas/adidas-men-black-solid-adivat-running-shoes-/13444428/buy",
+      "brand": "ADIDAS",
+      "title": "Men Adivat Running Shoes",
+      "price": "Rs. 1260",
+      "original_price": "Rs. 3299",
+      "discount": "(61% OFF)"
+    },
+    {
+      "link": "https://www.myntra.com/sports-shoes/adidas/adidas-men-cloudfoam-go-lounger-walking-shoes/29021366/buy",
+      "brand": "ADIDAS",
+      "title": "Men CLOUDFOAM GO LOUNGER",
+      "price": "Rs. 2400",
+      "original_price": "Rs. 5999",
+      "discount": "(59% OFF)"
+    }
+  ]
+}

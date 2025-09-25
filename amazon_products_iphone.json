@@ -1,0 +1,45 @@
+{
+  "query": "iphone",
+  "search_url": "https://www.amazon.in/s?k=iphone&ref=nb_sb_noss",
+  "total_products": 8,
+  "products": [
+    {
+      "price": "47,999",
+      "rating": "5,109",
+      "reviews": "5,109"
+    },
+    {
+      "price": "66,990",
+      "rating": "1,467",
+      "reviews": "1,467"
+    },
+    {
+      "price": "47,999",
+      "rating": "5,109",
+      "reviews": "5,109"
+    },
+    {
+      "price": "47,999",
+      "rating": "5,109",
+      "reviews": "5,109"
+    },
+    {
+      "price": "47,999",
+      "rating": "5,109",
+      "reviews": "5,109"
+    },
+    {
+      "price": "57,999",
+      "rating": "5,109",
+      "reviews": "5,109"
+    },
+    {
+      "price": "66,990",
+      "rating": "1,467",
+      "reviews": "1,467"
+    },
+    {
+      "price": "1,19,900"
+    }
+  ]
+}
