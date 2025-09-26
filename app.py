@@ -445,38 +445,41 @@ class AmazonScraper(EcommerceScraper):
         """Search Amazon for products"""
         driver = get_driver()
         try:
+            # Navigate to Amazon
             driver.get("https://www.amazon.in")
-            wait = WebDriverWait(driver, 10)
+            wait = WebDriverWait(driver, 15)
+
+            # Wait for page to load completely
+            wait.until(EC.presence_of_element_located((By.ID, "twotabsearchtextbox")))
 
             # Search input
-            search_input = wait.until(EC.presence_of_element_located((By.ID, "twotabsearchtextbox")))
+            search_input = driver.find_element(By.ID, "twotabsearchtextbox")
             search_input.clear()
             search_input.send_keys(query)
             search_input.send_keys(Keys.ENTER)
 
             # Wait for search results to load
-            time.sleep(8)  # Increased wait time for better element detection
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "[data-component-type='s-search-result']")))
+            time.sleep(3)  # Additional wait for dynamic content
+            
             
             # Extract product information
             products_info = []
             
-            # Try different selectors for product cards
-            product_selectors = [
-                "div[data-component-type='s-search-result']",
-                "div.s-result-item",
-                "div[data-asin]",
-                "div.s-card-container",
-            ]
+            # Get all product cards
+            product_cards = driver.find_elements(By.CSS_SELECTOR, "[data-component-type='s-search-result']")
             
-            product_cards = []
-            for selector in product_selectors:
-                try:
-                    cards = driver.find_elements(By.CSS_SELECTOR, selector)
-                    if cards:
-                        product_cards = cards
+            if not product_cards:
+                # Fallback selectors
+                fallback_selectors = [
+                    "div.s-result-item",
+                    "div[data-asin]",
+                    "div.s-card-container"
+                ]
+                for selector in fallback_selectors:
+                    product_cards = driver.find_elements(By.CSS_SELECTOR, selector)
+                    if product_cards:
                         break
-                except Exception:
-                    continue
             
             if not product_cards:
                 return {"error": "No product cards found", "products": []}
@@ -484,164 +487,190 @@ class AmazonScraper(EcommerceScraper):
             # Extract information from each product card
             for i, card in enumerate(product_cards[:max_results]):
                 try:
-                    product_info = {}
+                    product_info = {
+                        "name": "",
+                        "price": "",
+                        "brand": "",
+                        "category": "",
+                        "rating": "",
+                        "link": ""
+                    }
                     
-                    # Simplified approach - extract all links and find the best one
-                    logger.info(f"Amazon: Starting simplified link extraction for card {i+1}")
+                    # Extract product link first - comprehensive approach
+                    link_selectors = [
+                        "h2 a",  # Primary Amazon product link
+                        "a[href*='/dp/']",  # Amazon product links
+                        "a[href*='/gp/product/']",  # Alternative Amazon product links
+                        "a[data-automation-id='product-title']",  # Product title links
+                        "a[href*='amazon.in']",  # Any Amazon link
+                        "a"  # Any link as fallback
+                    ]
                     
-                    # Get all links in the card
-                    all_links = card.find_elements(By.TAG_NAME, "a")
-                    logger.info(f"Amazon: Found {len(all_links)} total links in card")
-                    
-                    product_link = ""
-                    product_title = ""
-                    
-                    for j, link_elem in enumerate(all_links):
+                    for selector in link_selectors:
                         try:
-                            link = link_elem.get_attribute('href') or ''
-                            text = link_elem.text.strip()
-                            
-                            logger.info(f"Amazon: Link {j+1}: {link[:100]}... (text: '{text[:50]}...')")
-                            
-                            # Check if this is an Amazon product link
-                            if link and ('/dp/' in link or '/gp/product/' in link) and 'amazon.in' in link:
-                                if not product_link:
-                                    product_link = link
-                                    logger.info(f"Amazon: Found product link: {link[:80]}...")
-                                
-                                # Check if this link has meaningful text (likely the title)
-                                if (text and len(text) > 10 and len(text) < 200 and 
-                                    not text.startswith('₹') and 
-                                    not text.startswith('Rs') and
-                                    not text.endswith('%') and
-                                    'off' not in text.lower() and 
-                                    'delivery' not in text.lower() and 
-                                    'reviews' not in text.lower() and
-                                    'rating' not in text.lower() and
-                                    'M.R.P:' not in text and
-                                    not text.startswith('Best seller') and
-                                    not text.startswith('5,109') and
-                                    not text.startswith('₹47,999')):
-                                    product_title = text
-                                    logger.info(f"Amazon: Found title '{product_title}'")
+                            link_elem = card.find_element(By.CSS_SELECTOR, selector)
+                            href = link_elem.get_attribute('href')
+                            if href and ('/dp/' in href or '/gp/product/' in href):
+                                product_info['link'] = href
+                                break
+                        except:
+                            continue
+                    
+                    # If still no link, try to find any clickable element
+                    if not product_info['link']:
+                        try:
+                            clickable_elements = card.find_elements(By.TAG_NAME, "a")
+                            for elem in clickable_elements:
+                                href = elem.get_attribute('href')
+                                if href and ('amazon.in' in href or '/dp/' in href):
+                                    product_info['link'] = href
+                                    break
+                        except:
+                            pass
+                    
+                    # Extract product name/title - more comprehensive approach
+                    title_selectors = [
+                        "h2 a span",  # Primary Amazon title selector
+                        "h2 a",       # Alternative title selector
+                        "span[data-automation-id='product-title']",
+                        "a[data-automation-id='product-title']",
+                        "h2[data-automation-id='product-title']",
+                        "span.a-size-medium",  # Common Amazon title class
+                        "span.a-size-base-plus",  # Another common title class
+                        "div[data-automation-id='product-title'] a",
+                        "a[href*='/dp/'] span",  # Title within product link
+                        "h2 span",  # Generic h2 span
+                        "span[class*='title']",  # Any span with title class
+                        "div[class*='title']"   # Any div with title class
+                    ]
+                    
+                    for selector in title_selectors:
+                        try:
+                            title_elem = card.find_element(By.CSS_SELECTOR, selector)
+                            title_text = title_elem.text.strip()
+                            if title_text and len(title_text) > 5 and len(title_text) < 300:
+                                # Filter out non-product text
+                                if not any(word in title_text.lower() for word in ['sponsored', 'advertisement', 'best seller', 'amazon choice']):
+                                    product_info['name'] = title_text
                                     break
                         except:
                             continue
                     
-                    # Set the results
-                    if product_link:
-                        product_info['link'] = product_link
-                    if product_title:
-                        product_info['title'] = product_title
-                        
-                        # Try alternative title selectors
-                        title_selectors = [
-                            "h2.a-size-mini a span",
-                            "h2.a-size-mini a",
-                            "h2 a span",
-                            "h2 a",
-                            "a[data-automation-id='product-title']",
-                            "span[data-automation-id='product-title']",
-                            "div[data-automation-id='product-title'] a"
-                        ]
-                        
-                        for selector in title_selectors:
-                            try:
-                                title_elem = card.find_element(By.CSS_SELECTOR, selector)
-                                title_text = title_elem.text.strip()
-                                if title_text and len(title_text) > 5:
-                                    product_info['title'] = title_text
-                                    break
-                            except:
-                                continue
-                    
-                    # If no title found, try to extract from card text
-                    if not product_info.get('title'):
+                    # If still no name, try extracting from card text
+                    if not product_info['name']:
                         try:
                             card_text = card.text.strip()
                             lines = card_text.split('\n')
                             for line in lines:
                                 line = line.strip()
-                                if (line and len(line) > 10 and len(line) < 200 and 
+                                if (line and len(line) > 10 and len(line) < 300 and 
                                     not line.startswith('₹') and 
                                     not line.startswith('Rs') and
                                     not line.endswith('%') and
                                     'off' not in line.lower() and 
                                     'delivery' not in line.lower() and 
                                     'reviews' not in line.lower() and
-                                    'rating' not in line.lower()):
-                                    product_info['title'] = line
+                                    'rating' not in line.lower() and
+                                    'M.R.P:' not in line and
+                                    not line.startswith('Best seller') and
+                                    not line.startswith('Sponsored') and
+                                    not line.startswith('Amazon Choice')):
+                                    product_info['name'] = line
                                     break
                         except:
                             pass
                     
-                    # If no link found, try to find any product link in the card
-                    if not product_info.get('link'):
+                    # Extract price
+                    try:
+                        # Primary price selector
+                        price_elem = card.find_element(By.CSS_SELECTOR, "span.a-price-whole")
+                        price_text = price_elem.text.strip()
+                        if price_text:
+                            product_info['price'] = f"₹{price_text}"
+                    except:
                         try:
-                            link_selectors = [
-                                "a[href*='/dp/']",
-                                "a[href*='/gp/product/']",
-                                "a[href*='amazon.in']",
-                                "a[href*='amazon.com']",
-                                "a[data-component-type='s-product-image']",
-                                "span[data-component-type='s-product-image'] a",
-                                "div[data-component-type='s-product-image'] a",
-                                "a[data-component-type='s-search-result']",
-                                "div[data-component-type='s-search-result'] a",
-                                "h2 a",
-                                "div[data-asin] a"
+                            # Fallback price selectors
+                            price_selectors = [
+                                "span.a-price.a-text-price",
+                                "span.a-offscreen",
+                                ".a-price-range .a-price-whole"
                             ]
-                            for selector in link_selectors:
+                            for selector in price_selectors:
                                 try:
-                                    link_elem = card.find_element(By.CSS_SELECTOR, selector)
-                                    href = link_elem.get_attribute('href')
-                                    if href and ('/dp/' in href or '/gp/product/' in href):
-                                        product_info['link'] = href
+                                    price_elem = card.find_element(By.CSS_SELECTOR, selector)
+                                    price_text = price_elem.text.strip()
+                                    if price_text and ('₹' in price_text or 'Rs' in price_text):
+                                        product_info['price'] = price_text
                                         break
                                 except:
                                     continue
                         except:
                             pass
                     
-                    # If still no link, try to extract from the entire card
-                    if not product_info.get('link'):
-                        try:
-                            all_links = card.find_elements(By.TAG_NAME, "a")
-                            for link in all_links:
-                                href = link.get_attribute('href')
-                                if href and ('/dp/' in href or '/gp/product/' in href):
-                                    product_info['link'] = href
-                                    break
-                        except:
-                            pass
-                    
-                    # Extract price
-                    price_selectors = [
-                        "span.a-price-whole",
-                        "span.a-price.a-text-price",
-                        "span.a-offscreen",
-                        "span[data-automation-id='product-price']",
-                        "div[data-automation-id='product-price']",
+                    # Extract brand - comprehensive approach for Amazon
+                    brand_selectors = [
+                        "span[data-automation-id='product-brand']",
+                        "div[data-automation-id='product-brand']",
+                        "span.a-size-base-plus",  # Common Amazon brand class
+                        "div.a-size-base-plus",
+                        "span[class*='brand']",
+                        "div[class*='brand']",
+                        "span[class*='manufacturer']",
+                        "div[class*='manufacturer']",
+                        "span[class*='seller']",
+                        "div[class*='seller']"
                     ]
                     
-                    for selector in price_selectors:
+                    for selector in brand_selectors:
                         try:
-                            price_elem = card.find_element(By.CSS_SELECTOR, selector)
-                            price_text = price_elem.text.strip()
-                            if price_text and ('₹' in price_text or 'Rs' in price_text or price_text.replace(',', '').replace('.', '').isdigit()):
-                                product_info['price'] = price_text
+                            brand_elem = card.find_element(By.CSS_SELECTOR, selector)
+                            brand_text = brand_elem.text.strip()
+                            if brand_text and len(brand_text) > 1 and len(brand_text) < 50:
+                                product_info['brand'] = brand_text
                                 break
                         except:
                             continue
                     
-                    # Extract rating
+                    # If no brand found with selectors, try to extract from product name
+                    if not product_info['brand'] and product_info['name']:
+                        name_parts = product_info['name'].split()
+                        if name_parts:
+                            # Common brand names
+                            brands = ['Apple', 'Samsung', 'OnePlus', 'Xiaomi', 'Realme', 'Oppo', 'Vivo', 'Nokia', 'Motorola', 'LG', 'Sony', 'HP', 'Dell', 'Lenovo', 'Asus', 'Acer', 'Nike', 'Adidas', 'Puma', 'Reebok', 'Woodland', 'Red Tape', 'Bata', 'Liberty', 'Sparx', 'Campus', 'Bacca Bucci', 'HOCKEY', 'Urbanbox', 'Bruton']
+                            for brand in brands:
+                                if brand.lower() in product_info['name'].lower():
+                                    product_info['brand'] = brand
+                                    break
+                    
+                    # Extract category (try to infer from product name)
+                    if product_info['name']:
+                        name_lower = product_info['name'].lower()
+                        if any(word in name_lower for word in ['phone', 'mobile', 'smartphone', 'iphone', 'galaxy']):
+                            product_info['category'] = 'Mobile Phones'
+                        elif any(word in name_lower for word in ['laptop', 'notebook', 'computer']):
+                            product_info['category'] = 'Laptops'
+                        elif any(word in name_lower for word in ['shoes', 'sneakers', 'footwear']):
+                            product_info['category'] = 'Shoes'
+                        elif any(word in name_lower for word in ['shirt', 't-shirt', 'clothing']):
+                            product_info['category'] = 'Clothing'
+                        elif any(word in name_lower for word in ['book', 'novel']):
+                            product_info['category'] = 'Books'
+                        else:
+                            product_info['category'] = 'General'
+                    
+                    # Extract rating - comprehensive approach for Amazon (ACTUAL STAR RATINGS ONLY)
                     rating_selectors = [
-                        "span.a-icon-alt",
-                        "span[data-automation-id='product-rating']",
-                        "div[data-automation-id='product-rating']",
-                        "span.a-icon-star",
-                        "span[aria-label*='star']",
+                        "a.a-popover-trigger[aria-label*='out of 5 stars']",  # Primary Amazon rating selector
+                        "span.a-icon-alt",  # Alternative Amazon rating selector
+                        "span[aria-label*='stars']",
+                        "div[aria-label*='stars']",
                         "span[aria-label*='out of']",
+                        "div[aria-label*='out of']",
+                        "a[aria-label*='out of']",
+                        "span[class*='a-icon-star']",
+                        "div[class*='a-icon-star']",
+                        "span[class*='a-star-mini']",
+                        "div[class*='a-star-mini']"
                     ]
                     
                     for selector in rating_selectors:
@@ -649,19 +678,72 @@ class AmazonScraper(EcommerceScraper):
                             rating_elem = card.find_element(By.CSS_SELECTOR, selector)
                             rating_text = rating_elem.text.strip()
                             aria_label = rating_elem.get_attribute('aria-label') or ''
-                            title_attr = rating_elem.get_attribute('title') or ''
                             
-                            if rating_text and ('out of' in rating_text.lower() or rating_text.replace('.', '').replace(',', '').isdigit()):
+                            # Check aria-label first (most reliable for Amazon)
+                            if aria_label and ('out of' in aria_label.lower() or 'star' in aria_label.lower()):
+                                # Extract just the rating number from aria-label like "4.5 out of 5 stars"
+                                import re
+                                rating_match = re.search(r'(\d+\.?\d*)\s*out of', aria_label)
+                                if rating_match:
+                                    product_info['rating'] = rating_match.group(1)
+                                    break
+                                else:
+                                    product_info['rating'] = aria_label
+                                    break
+                            # Check text content for star ratings only
+                            elif rating_text and 'out of' in rating_text.lower() and 'star' in rating_text.lower():
                                 product_info['rating'] = rating_text
-                                break
-                            elif aria_label and ('out of' in aria_label.lower() or 'star' in aria_label.lower()):
-                                product_info['rating'] = aria_label
-                                break
-                            elif title_attr and ('out of' in title_attr.lower() or 'star' in title_attr.lower()):
-                                product_info['rating'] = title_attr
                                 break
                         except:
                             continue
+                    
+                    # If no rating found with selectors, try XPath
+                    if not product_info['rating']:
+                        try:
+                            rating_xpaths = [
+                                "//span[contains(@aria-label, 'out of')]",
+                                "//div[contains(@aria-label, 'out of')]",
+                                "//span[contains(@aria-label, 'stars')]",
+                                "//div[contains(@aria-label, 'stars')]"
+                            ]
+                            
+                            for xpath in rating_xpaths:
+                                try:
+                                    rating_elem = card.find_element(By.XPATH, xpath)
+                                    aria_label = rating_elem.get_attribute('aria-label') or ''
+                                    
+                                    if aria_label and ('out of' in aria_label.lower() or 'star' in aria_label.lower()):
+                                        # Extract just the rating number from aria-label
+                                        import re
+                                        rating_match = re.search(r'(\d+\.?\d*)\s*out of', aria_label)
+                                        if rating_match:
+                                            product_info['rating'] = rating_match.group(1)
+                                            break
+                                        else:
+                                            product_info['rating'] = aria_label
+                                            break
+                                except:
+                                    continue
+                        except:
+                            pass
+                    
+                    # If still no rating, try to extract from card text content (look for star ratings only)
+                    if not product_info['rating']:
+                        try:
+                            card_text = card.text.strip()
+                            lines = card_text.split('\n')
+                            for line in lines:
+                                line = line.strip()
+                                # Look for rating patterns like "4.5 out of 5 stars" - NOT review counts
+                                if 'out of' in line.lower() and 'star' in line.lower():
+                                    # Extract just the rating number
+                                    import re
+                                    rating_match = re.search(r'(\d+\.?\d*)\s*out of', line)
+                                    if rating_match:
+                                        product_info['rating'] = rating_match.group(1)
+                                        break
+                        except:
+                            pass
                     
                     # Extract reviews count
                     review_selectors = [
@@ -700,7 +782,7 @@ class AmazonScraper(EcommerceScraper):
                             continue
                     
                     # If we found any meaningful information, add it
-                    if product_info.get('title') or product_info.get('price'):
+                    if product_info.get('name') or product_info.get('price'):
                         product_info['site'] = 'Amazon'
                         products_info.append(product_info)
                         
@@ -1049,30 +1131,35 @@ class FlipkartScraper(EcommerceScraper):
         """Search Flipkart for products"""
         driver = get_driver()
         try:
+            # Navigate to Flipkart
             driver.get("https://www.flipkart.com")
-            wait = WebDriverWait(driver, 10)
+            wait = WebDriverWait(driver, 15)
 
             # Close login popup if present
             self.close_login_popup(driver)
 
+            # Wait for search input to be available
+            wait.until(EC.presence_of_element_located((By.NAME, "q")))
+
             # Search input
-            search_input = wait.until(EC.presence_of_element_located((By.NAME, "q")))
+            search_input = driver.find_element(By.NAME, "q")
             search_input.clear()
             search_input.send_keys(query)
             search_input.send_keys(Keys.ENTER)
 
             # Wait for search results to load
-            time.sleep(5)
+            print("Waiting for Flipkart search results to load...")
+            time.sleep(5)  # Give more time for results to load
             
             # Extract product information
             products_info = []
             
             # Try different selectors for product cards
             product_selectors = [
-                "div._1AtVbE",
-                "div[data-id]",
-                "div._2kHMtA",
-                "div._13oc-S",
+                "div._1AtVbE",  # Main product card container
+                "div[data-id]",  # Generic product containers
+                "div._2kHMtA",  # Alternative card selector
+                "div._13oc-S",  # Another card selector
             ]
             
             product_cards = []
@@ -1081,117 +1168,275 @@ class FlipkartScraper(EcommerceScraper):
                     cards = driver.find_elements(By.CSS_SELECTOR, selector)
                     if cards:
                         product_cards = cards
+                        print(f"Found {len(cards)} product cards using selector: {selector}")
                         break
                 except Exception:
                     continue
             
             if not product_cards:
+                print("No product cards found with standard selectors.")
                 return {"error": "No product cards found", "products": []}
             
             # Extract information from each product card
             for i, card in enumerate(product_cards[:max_results]):
                 try:
-                    product_info = {}
+                    product_info = {
+                        "name": "",
+                        "price": "",
+                        "brand": "",
+                        "category": "",
+                        "rating": "",
+                        "link": ""
+                    }
                     
-                    # Extract title
+                    # Extract product link first - comprehensive approach for Flipkart
+                    link_selectors = [
+                        "a[href*='/p/']",  # Flipkart product links
+                        "a[href*='flipkart.com']",  # Any Flipkart link
+                        "a[title]",  # Links with title attribute
+                        "a"  # Any link as fallback
+                    ]
+                    
+                    for selector in link_selectors:
+                        try:
+                            link_elem = card.find_element(By.CSS_SELECTOR, selector)
+                            href = link_elem.get_attribute('href')
+                            if href and ('flipkart.com' in href or '/p/' in href):
+                                product_info['link'] = href
+                                break
+                        except:
+                            continue
+                    
+                    # More comprehensive title selectors
                     title_selectors = [
-                        "div._4rR01T",
-                        "a.s1Q9rs",
-                        "a[title]",
+                        "div._4rR01T",  # Grid view title
+                        "a.s1Q9rs",     # List view title
+                        "a[title]",     # Title attribute
                         "div[class*='title']",
                         "span[class*='title']",
-                        "a",
+                        "a",            # Any link
+                        "div[class*='_4rR01T']",  # Alternative grid title
+                        "span[class*='_4rR01T']", # Alternative grid title
+                        "h3",           # Heading tags
+                        "h2",           # Heading tags
+                        "h1",           # Heading tags
                     ]
                     
                     for selector in title_selectors:
                         try:
                             title_elem = card.find_element(By.CSS_SELECTOR, selector)
                             title_text = title_elem.text.strip()
-                            if title_text and len(title_text) > 5:
-                                product_info['title'] = title_text
-                                product_info['link'] = title_elem.get_attribute('href') or ''
+                            if title_text and len(title_text) > 5:  # Only use if meaningful text
+                                product_info['name'] = title_text
+                                # Only set link if we don't have one already
+                                if not product_info.get('link'):
+                                    product_info['link'] = title_elem.get_attribute('href') or ''
                                 break
                         except:
                             continue
                     
-                    # Extract price
+                    # More comprehensive price selectors for Flipkart
                     price_selectors = [
-                        "div._30jeq3",
+                        "div._30jeq3",  # Main price
                         "div[class*='_30jeq3']",
-                        "span[class*='price']",
-                        "div[class*='price']",
                         "span[class*='_30jeq3']",
+                        "div[class*='_25b18c']",  # Alternative price selector
+                        "span[class*='_25b18c']", # Alternative price selector
+                        "div[class*='_16Jk6d']",  # Another price selector
+                        "span[class*='_16Jk6d']",
+                        "div[class*='_1vC4OE']",  # Another price selector
+                        "span[class*='_1vC4OE']",
+                        "div[class*='price']",
+                        "span[class*='price']",
+                        "div[data-automation-id='product-price']",
+                        "span[data-automation-id='product-price']"
                     ]
                     
                     for selector in price_selectors:
                         try:
                             price_elem = card.find_element(By.CSS_SELECTOR, selector)
                             price_text = price_elem.text.strip()
-                            if price_text and ('₹' in price_text or 'Rs' in price_text):
+                            if price_text and ('₹' in price_text or 'Rs' in price_text or 'INR' in price_text):
                                 product_info['price'] = price_text
                                 break
                         except:
                             continue
                     
-                    # Extract rating
+                    # If no price found with selectors, try XPath
+                    if not product_info['price']:
+                        try:
+                            price_xpaths = [
+                                "//div[contains(text(), '₹')]",
+                                "//span[contains(text(), '₹')]",
+                                "//div[contains(@class, 'price')]",
+                                "//span[contains(@class, 'price')]"
+                            ]
+                            
+                            for xpath in price_xpaths:
+                                try:
+                                    price_elem = card.find_element(By.XPATH, xpath)
+                                    price_text = price_elem.text.strip()
+                                    if price_text and ('₹' in price_text or 'Rs' in price_text):
+                                        product_info['price'] = price_text
+                                        break
+                                except:
+                                    continue
+                        except:
+                            pass
+                    
+                    # More comprehensive rating selectors for Flipkart
                     rating_selectors = [
-                        "div._3LWZlK",
-                        "span[class*='rating']",
-                        "div[class*='rating']",
+                        "div._3LWZlK",  # Rating stars
                         "span[class*='_3LWZlK']",
                         "div[class*='_3LWZlK']",
+                        "span[class*='rating']",
+                        "div[class*='rating']",
+                        "div[class*='_2d4LTz']",  # Alternative rating selector
+                        "span[class*='_2d4LTz']",
+                        "div[class*='_3uSWvM']",  # Another rating selector
+                        "span[class*='_3uSWvM']",
+                        "div[data-automation-id='product-rating']",
+                        "span[data-automation-id='product-rating']"
                     ]
                     
                     for selector in rating_selectors:
                         try:
                             rating_elem = card.find_element(By.CSS_SELECTOR, selector)
                             rating_text = rating_elem.text.strip()
-                            if rating_text and rating_text.replace('.', '').isdigit():
+                            if rating_text and rating_text.replace('.', '').replace(',', '').isdigit():
                                 product_info['rating'] = rating_text
                                 break
                         except:
                             continue
                     
-                    # Extract reviews count
-                    review_selectors = [
-                        "span._2_R_DZ",
-                        "span[class*='review']",
-                        "div[class*='review']",
-                        "span[class*='_2_R_DZ']",
-                        "div[class*='_2_R_DZ']",
+                    # If no rating found with selectors, try XPath
+                    if not product_info['rating']:
+                        try:
+                            rating_xpaths = [
+                                "//div[contains(@class, 'rating')]",
+                                "//span[contains(@class, 'rating')]",
+                                "//div[contains(text(), '.') and string-length(text()) < 5]"
+                            ]
+                            
+                            for xpath in rating_xpaths:
+                                try:
+                                    rating_elem = card.find_element(By.XPATH, xpath)
+                                    rating_text = rating_elem.text.strip()
+                                    if rating_text and rating_text.replace('.', '').replace(',', '').isdigit():
+                                        product_info['rating'] = rating_text
+                                        break
+                                except:
+                                    continue
+                        except:
+                            pass
+                    
+                    # If still no rating, try to extract from card text content (Flipkart specific)
+                    if not product_info['rating']:
+                        try:
+                            card_text = card.text.strip()
+                            lines = card_text.split('\n')
+                            for line in lines:
+                                line = line.strip()
+                                # Look for Flipkart rating patterns like "4.61,363 Ratings & 99 Reviews"
+                                if 'ratings' in line.lower() and 'reviews' in line.lower():
+                                    # Extract the rating number from the beginning
+                                    import re
+                                    rating_match = re.search(r'(\d+\.?\d*)', line)
+                                    if rating_match:
+                                        product_info['rating'] = rating_match.group(1)
+                                        break
+                                # Also look for simple rating patterns like "4.5"
+                                elif line.replace('.', '').replace(',', '').isdigit() and len(line) <= 5:
+                                    product_info['rating'] = line
+                                    break
+                        except:
+                            pass
+                    
+                    # Extract brand - comprehensive approach for Flipkart
+                    brand_selectors = [
+                        "span[data-automation-id='product-brand']",
+                        "div[data-automation-id='product-brand']",
+                        "span[class*='brand']",
+                        "div[class*='brand']",
+                        "span[class*='manufacturer']",
+                        "div[class*='manufacturer']",
+                        "span[class*='seller']",
+                        "div[class*='seller']",
+                        "span[class*='company']",
+                        "div[class*='company']"
                     ]
                     
-                    for selector in review_selectors:
+                    for selector in brand_selectors:
                         try:
-                            review_elem = card.find_element(By.CSS_SELECTOR, selector)
-                            review_text = review_elem.text.strip()
-                            if review_text and ('rating' in review_text.lower() or 'review' in review_text.lower()):
-                                product_info['reviews'] = review_text
+                            brand_elem = card.find_element(By.CSS_SELECTOR, selector)
+                            brand_text = brand_elem.text.strip()
+                            if brand_text and len(brand_text) > 1 and len(brand_text) < 50:
+                                product_info['brand'] = brand_text
                                 break
                         except:
                             continue
                     
-                    # Extract discount
-                    discount_selectors = [
-                        "div._3Ay6Sb",
-                        "span[class*='discount']",
-                        "div[class*='discount']",
-                        "span[class*='_3Ay6Sb']",
-                        "div[class*='_3Ay6Sb']",
-                    ]
+                    # If no brand found with selectors, try to extract from product name
+                    if not product_info['brand'] and product_info['name']:
+                        name_parts = product_info['name'].split()
+                        if name_parts:
+                            # Common brand names - expanded list
+                            brands = ['Apple', 'Samsung', 'OnePlus', 'Xiaomi', 'Realme', 'Oppo', 'Vivo', 'Nokia', 'Motorola', 'LG', 'Sony', 'HP', 'Dell', 'Lenovo', 'Asus', 'Acer', 'Nike', 'Adidas', 'Puma', 'Reebok', 'Woodland', 'Red Tape', 'Bata', 'Liberty', 'Sparx', 'Campus', 'Bacca Bucci', 'HOCKEY', 'Urbanbox', 'Bruton', 'MIKE', 'TERFILL', 'BRUTON', 'Crocs', 'Skechers', 'New Balance', 'Converse', 'Vans', 'Under Armour', 'Reebok', 'Fila', 'Kappa', 'Umbro', 'Diadora', 'Lotto', 'Kelme', 'Joma', 'Mizuno', 'Asics', 'Brooks', 'Saucony', 'Hoka', 'Onitsuka Tiger', 'Jordan', 'Air Jordan']
+                            for brand in brands:
+                                if brand.lower() in product_info['name'].lower():
+                                    product_info['brand'] = brand
+                                    break
                     
-                    for selector in discount_selectors:
+                    # Try to extract brand from product link FIRST (most reliable)
+                    if not product_info['brand'] and product_info.get('link'):
                         try:
-                            discount_elem = card.find_element(By.CSS_SELECTOR, selector)
-                            discount_text = discount_elem.text.strip()
-                            if discount_text and ('%' in discount_text or 'off' in discount_text.lower()):
-                                product_info['discount'] = discount_text
-                                break
+                            product_url = product_info['link'].lower()
+                            for brand in ['nike', 'adidas', 'puma', 'reebok', 'woodland', 'red tape', 'bata', 'liberty', 'sparx', 'campus', 'bacca bucci', 'hockey', 'urbanbox', 'bruton', 'mike', 'terfill', 'asian', 'skechers', 'new balance', 'converse', 'vans', 'under armour', 'fila', 'kappa', 'umbro', 'diadora', 'lotto', 'kelme', 'joma', 'mizuno', 'asics', 'brooks', 'saucony', 'hoka', 'onitsuka tiger', 'jordan', 'air jordan']:
+                                if brand in product_url:
+                                    product_info['brand'] = brand.title()
+                                    break
                         except:
-                            continue
+                            pass
+                    
+                    # Additional brand extraction for Flipkart - look for brand in product name
+                    if not product_info['brand'] and product_info['name']:
+                        name_lower = product_info['name'].lower()
+                        # Common shoe brands that might appear in product names
+                        shoe_brands = ['nike', 'adidas', 'puma', 'reebok', 'woodland', 'red tape', 'bata', 'liberty', 'sparx', 'campus', 'bacca bucci', 'hockey', 'urbanbox', 'bruton', 'mike', 'terfill', 'asian', 'skechers', 'new balance', 'converse', 'vans', 'under armour', 'fila', 'kappa', 'umbro', 'diadora', 'lotto', 'kelme', 'joma', 'mizuno', 'asics', 'brooks', 'saucony', 'hoka', 'onitsuka tiger', 'jordan', 'air jordan']
+                        for brand in shoe_brands:
+                            if brand in name_lower:
+                                product_info['brand'] = brand.title()
+                                break
+                    
+                    # If still no brand, try to extract first word from name as brand
+                    if not product_info['brand'] and product_info['name']:
+                        name_words = product_info['name'].split()
+                        for word in name_words:
+                            # Skip words that start with numbers or special characters
+                            if word and len(word) > 2 and word.isalpha() and not word.startswith('-'):
+                                product_info['brand'] = word
+                                break
+                    
+                    # Extract category (try to infer from product name)
+                    if product_info['name']:
+                        name_lower = product_info['name'].lower()
+                        if any(word in name_lower for word in ['phone', 'mobile', 'smartphone', 'iphone', 'galaxy']):
+                            product_info['category'] = 'Mobile Phones'
+                        elif any(word in name_lower for word in ['laptop', 'notebook', 'computer']):
+                            product_info['category'] = 'Laptops'
+                        elif any(word in name_lower for word in ['shoes', 'sneakers', 'footwear', 'sandals']):
+                            product_info['category'] = 'Shoes'
+                        elif any(word in name_lower for word in ['shirt', 't-shirt', 'clothing', 'dress', 'top']):
+                            product_info['category'] = 'Clothing'
+                        elif any(word in name_lower for word in ['book', 'novel']):
+                            product_info['category'] = 'Books'
+                        elif any(word in name_lower for word in ['headphone', 'earphone', 'speaker']):
+                            product_info['category'] = 'Audio'
+                        else:
+                            product_info['category'] = 'General'
                     
                     # If we found any meaningful information, add it
-                    if product_info.get('title') or product_info.get('price'):
+                    if product_info.get('name') or product_info.get('price'):
                         product_info['site'] = 'Flipkart'
                         products_info.append(product_info)
                         
@@ -1223,8 +1468,7 @@ class FlipkartScraper(EcommerceScraper):
                 "site": "Flipkart",
                 "query": query,
                 "total_products": len(products_info),
-                "basic_products": products_info,
-                "detailed_products": detailed_products
+                "products": products_info
             }
             
         except Exception as e:
@@ -1574,50 +1818,67 @@ class MeeshoScraper(EcommerceScraper):
             # Extract information from each product card
             for i, card in enumerate(product_cards[:max_results]):
                 try:
-                    product_info = {}
+                    product_info = {
+                        "name": "",
+                        "price": "",
+                        "brand": "",
+                        "category": "",
+                        "rating": "",
+                        "link": ""
+                    }
                     
-                    # Extract title - improved selectors for Meesho
-                    title_selectors = [
-                        "h3", "h4", "h2", "h1",  # Heading tags
-                        "a[title]",  # Title attribute
-                        "div[class*='title']",  # Title divs
-                        "span[class*='title']",  # Title spans
-                        "div[class*='name']",  # Name divs
-                        "span[class*='name']",  # Name spans
-                        "div[class*='product-name']",  # Product name
-                        "span[class*='product-name']",  # Product name span
-                        "div[class*='product-title']",  # Product title
-                        "span[class*='product-title']",  # Product title span
-                        "a",  # Any link
-                        "p",  # Paragraph tags
-                        "div[class*='text']",  # Text divs
-                        "span[class*='text']"  # Text spans
+                    # Extract product link first
+                    link_selectors = [
+                        "a[href*='/product/']",
+                        "a[href*='meesho.com']",
+                        "a[href*='product']"
                     ]
                     
-                    for selector in title_selectors:
+                    for selector in link_selectors:
                         try:
-                            title_elem = card.find_element(By.CSS_SELECTOR, selector)
-                            title_text = title_elem.text.strip()
-                            if (title_text and len(title_text) > 3 and len(title_text) < 200 and
-                                not title_text.endswith('%') and
-                                not title_text.endswith('off') and
-                                not title_text.startswith('%') and
-                                'off' not in title_text.lower() and
-                                not title_text.startswith('₹') and
-                                not title_text.startswith('Rs') and
-                                'delivery' not in title_text.lower() and
-                                'free' not in title_text.lower()):
-                                product_info['title'] = title_text
-                                try:
-                                    product_info['link'] = title_elem.get_attribute('href') or ''
-                                except:
-                                    pass
+                            link_elem = card.find_element(By.CSS_SELECTOR, selector)
+                            href = link_elem.get_attribute('href')
+                            if href and 'meesho.com' in href:
+                                product_info['link'] = href
                                 break
                         except:
                             continue
                     
-                    # If no title found, try to extract from card text
-                    if not product_info.get('title'):
+                    # Extract product name/title
+                    name_selectors = [
+                        "h3", "h4", "h2", "h1",
+                        "a[title]",
+                        "div[class*='title']",
+                        "span[class*='title']",
+                        "div[class*='name']",
+                        "span[class*='name']",
+                        "div[class*='product-name']",
+                        "span[class*='product-name']",
+                        "div[class*='product-title']",
+                        "span[class*='product-title']",
+                        "a", "p"
+                    ]
+                    
+                    for selector in name_selectors:
+                        try:
+                            name_elem = card.find_element(By.CSS_SELECTOR, selector)
+                            name_text = name_elem.text.strip()
+                            if (name_text and len(name_text) > 3 and len(name_text) < 200 and
+                                not name_text.endswith('%') and
+                                not name_text.endswith('off') and
+                                not name_text.startswith('%') and
+                                'off' not in name_text.lower() and
+                                not name_text.startswith('₹') and
+                                not name_text.startswith('Rs') and
+                                'delivery' not in name_text.lower() and
+                                'free' not in name_text.lower()):
+                                product_info['name'] = name_text
+                                break
+                        except:
+                            continue
+                    
+                    # If no name found, try to extract from card text
+                    if not product_info['name']:
                         try:
                             card_text = card.text.strip()
                             lines = card_text.split('\n')
@@ -1635,10 +1896,59 @@ class MeeshoScraper(EcommerceScraper):
                                     'free' not in line.lower() and
                                     ':' not in line and
                                     not line.replace(':', '').replace('h', '').replace('m', '').replace('s', '').replace(' ', '').isdigit()):
-                                    product_info['title'] = line
+                                    product_info['name'] = line
                                     break
                         except:
                             pass
+                    
+                    # Extract brand - comprehensive approach for Meesho
+                    # Try to extract brand from product link FIRST (most reliable)
+                    if not product_info['brand'] and product_info.get('link'):
+                        try:
+                            product_url = product_info['link'].lower()
+                            brands = ['nike', 'adidas', 'puma', 'reebok', 'woodland', 'red tape', 'bata', 'liberty', 'sparx', 'campus', 'bacca bucci', 'hockey', 'urbanbox', 'bruton', 'mike', 'terfill', 'asian', 'skechers', 'new balance', 'converse', 'vans', 'under armour', 'fila', 'kappa', 'umbro', 'diadora', 'lotto', 'kelme', 'joma', 'mizuno', 'asics', 'brooks', 'saucony', 'hoka', 'onitsuka tiger', 'jordan', 'air jordan', 'apple', 'samsung', 'oneplus', 'xiaomi', 'realme', 'oppo', 'vivo', 'nokia', 'motorola', 'lg', 'sony', 'hp', 'dell', 'lenovo', 'asus', 'acer', 'infinix', 'itelpower', 'redmi']
+                            for brand in brands:
+                                if brand in product_url:
+                                    product_info['brand'] = brand.title()
+                                    break
+                        except:
+                            pass
+                    
+                    # Try to extract brand from product name
+                    if not product_info['brand'] and product_info['name']:
+                        name_lower = product_info['name'].lower()
+                        brands = ['nike', 'adidas', 'puma', 'reebok', 'woodland', 'red tape', 'bata', 'liberty', 'sparx', 'campus', 'bacca bucci', 'hockey', 'urbanbox', 'bruton', 'mike', 'terfill', 'asian', 'skechers', 'new balance', 'converse', 'vans', 'under armour', 'fila', 'kappa', 'umbro', 'diadora', 'lotto', 'kelme', 'joma', 'mizuno', 'asics', 'brooks', 'saucony', 'hoka', 'onitsuka tiger', 'jordan', 'air jordan', 'apple', 'samsung', 'oneplus', 'xiaomi', 'realme', 'oppo', 'vivo', 'nokia', 'motorola', 'lg', 'sony', 'hp', 'dell', 'lenovo', 'asus', 'acer', 'infinix', 'itelpower', 'redmi']
+                        for brand in brands:
+                            if brand in name_lower:
+                                product_info['brand'] = brand.title()
+                                break
+                    
+                    # If still no brand, try to extract first word from name as brand
+                    if not product_info['brand'] and product_info['name']:
+                        name_words = product_info['name'].split()
+                        for word in name_words:
+                            # Skip words that start with numbers or special characters
+                            if word and len(word) > 2 and word.isalpha() and not word.startswith('-'):
+                                product_info['brand'] = word
+                                break
+                    
+                    # Extract category (try to infer from product name)
+                    if product_info['name']:
+                        name_lower = product_info['name'].lower()
+                        if any(word in name_lower for word in ['phone', 'mobile', 'smartphone', 'iphone', 'galaxy']):
+                            product_info['category'] = 'Mobile Phones'
+                        elif any(word in name_lower for word in ['laptop', 'notebook', 'computer']):
+                            product_info['category'] = 'Laptops'
+                        elif any(word in name_lower for word in ['shoes', 'sneakers', 'footwear', 'sandals']):
+                            product_info['category'] = 'Shoes'
+                        elif any(word in name_lower for word in ['shirt', 't-shirt', 'clothing', 'dress', 'top', 'pant', 'tshirt']):
+                            product_info['category'] = 'Clothing'
+                        elif any(word in name_lower for word in ['book', 'novel']):
+                            product_info['category'] = 'Books'
+                        elif any(word in name_lower for word in ['headphone', 'earphone', 'speaker']):
+                            product_info['category'] = 'Audio'
+                        else:
+                            product_info['category'] = 'General'
                     
                     # Extract price
                     price_selectors = [
@@ -1660,7 +1970,7 @@ class MeeshoScraper(EcommerceScraper):
                         except:
                             continue
                     
-                    # Extract rating
+                    # Extract rating - comprehensive approach for Meesho
                     rating_selectors = [
                         "div[class*='rating']",
                         "span[class*='rating']",
@@ -1668,6 +1978,10 @@ class MeeshoScraper(EcommerceScraper):
                         "span[class*='star']",
                         "div[class*='review']",
                         "span[class*='review']",
+                        "div[class*='score']",
+                        "span[class*='score']",
+                        "div[class*='average']",
+                        "span[class*='average']"
                     ]
                     
                     for selector in rating_selectors:
@@ -1679,6 +1993,33 @@ class MeeshoScraper(EcommerceScraper):
                                 break
                         except:
                             continue
+                    
+                    # Try to extract rating from card text content
+                    if not product_info['rating']:
+                        try:
+                            import re
+                            card_text = card.text
+                            # Look for rating patterns in Meesho
+                            rating_patterns = [
+                                r'(\d+\.?\d*)\s*out\s*of\s*5',
+                                r'(\d+\.?\d*)\s*★',
+                                r'(\d+\.?\d*)\s*stars',
+                                r'Rating:\s*(\d+\.?\d*)',
+                                r'(\d+\.?\d*)\s*ratings',
+                                r'(\d+\.?\d*)\s*reviews',
+                                r'(\d+\.?\d*)\s*★\s*\d+',
+                                r'(\d+\.?\d*)\s*,\d+\s*Ratings'
+                            ]
+                            
+                            for pattern in rating_patterns:
+                                match = re.search(pattern, card_text, re.IGNORECASE)
+                                if match:
+                                    rating_value = match.group(1)
+                                    if float(rating_value) <= 5.0:
+                                        product_info['rating'] = rating_value
+                                        break
+                        except:
+                            pass
                     
                     # Extract image URL
                     try:
@@ -1711,7 +2052,7 @@ class MeeshoScraper(EcommerceScraper):
                         pass
                     
                     # If we found any meaningful information, add it
-                    if product_info.get('title') or product_info.get('price'):
+                    if product_info.get('name') or product_info.get('price'):
                         product_info['site'] = 'Meesho'
                         products_info.append(product_info)
                         
@@ -1886,7 +2227,7 @@ class MyntraScraper(EcommerceScraper):
             except:
                 pass
             
-            # Extract rating
+            # Extract rating - comprehensive approach for Myntra
             rating_selectors = [
                 "span[class*='rating']",
                 "div[class*='rating']",
@@ -1899,7 +2240,13 @@ class MyntraScraper(EcommerceScraper):
                 "span[class*='review']",
                 "div[class*='review']",
                 "span[class*='pdp-rating']",
-                "div[class*='pdp-rating']"
+                "div[class*='pdp-rating']",
+                "span[class*='product-rating']",
+                "div[class*='product-rating']",
+                "span[class*='average-rating']",
+                "div[class*='average-rating']",
+                "span[class*='overall-rating']",
+                "div[class*='overall-rating']"
             ]
             
             for selector in rating_selectors:
@@ -1911,6 +2258,33 @@ class MyntraScraper(EcommerceScraper):
                         break
                 except:
                     continue
+            
+            # Try to extract rating from page text content
+            if not product_details["rating"]:
+                try:
+                    import re
+                    page_text = driver.page_source
+                    # Look for rating patterns in Myntra
+                    rating_patterns = [
+                        r'(\d+\.?\d*)\s*out\s*of\s*5',
+                        r'(\d+\.?\d*)\s*★',
+                        r'(\d+\.?\d*)\s*stars',
+                        r'Rating:\s*(\d+\.?\d*)',
+                        r'(\d+\.?\d*)\s*ratings',
+                        r'(\d+\.?\d*)\s*reviews',
+                        r'(\d+\.?\d*)\s*★\s*\d+',
+                        r'(\d+\.?\d*)\s*,\d+\s*Ratings'
+                    ]
+                    
+                    for pattern in rating_patterns:
+                        match = re.search(pattern, page_text, re.IGNORECASE)
+                        if match:
+                            rating_value = match.group(1)
+                            if float(rating_value) <= 5.0:
+                                product_details["rating"] = rating_value
+                                break
+                except:
+                    pass
             
             # Extract product images
             try:
@@ -2111,7 +2485,14 @@ class MyntraScraper(EcommerceScraper):
             # Extract information from each product card
             for i, card in enumerate(product_cards[:max_results]):
                 try:
-                    product_info = {}
+                    product_info = {
+                        "name": "",
+                        "price": "",
+                        "brand": "",
+                        "category": "",
+                        "rating": "",
+                        "link": ""
+                    }
                     
                     # Handle different card types
                     if card.tag_name == 'div' and 'product-productMetaInfo' in card.get_attribute('class'):
@@ -2159,10 +2540,10 @@ class MyntraScraper(EcommerceScraper):
                                     product_info['brand'] = title_text
                                     brand_found = True
                                 elif 'product' in selector.lower() and not product_name_found:
-                                    product_info['title'] = title_text
+                                    product_info['name'] = title_text
                                     product_name_found = True
-                                elif not product_info.get('title') and len(title_text) > 5:
-                                    product_info['title'] = title_text
+                                elif not product_info.get('name') and len(title_text) > 5:
+                                    product_info['name'] = title_text
                                 
                                 if not product_info.get('link'):
                                     try:
@@ -2260,6 +2641,24 @@ class MyntraScraper(EcommerceScraper):
                         except:
                             continue
                     
+                    # Extract category (try to infer from product name)
+                    if product_info['name']:
+                        name_lower = product_info['name'].lower()
+                        if any(word in name_lower for word in ['phone', 'mobile', 'smartphone', 'iphone', 'galaxy']):
+                            product_info['category'] = 'Mobile Phones'
+                        elif any(word in name_lower for word in ['laptop', 'notebook', 'computer']):
+                            product_info['category'] = 'Laptops'
+                        elif any(word in name_lower for word in ['shoes', 'sneakers', 'footwear', 'sandals']):
+                            product_info['category'] = 'Shoes'
+                        elif any(word in name_lower for word in ['shirt', 't-shirt', 'clothing', 'dress', 'top', 'pant', 'tshirt']):
+                            product_info['category'] = 'Clothing'
+                        elif any(word in name_lower for word in ['book', 'novel']):
+                            product_info['category'] = 'Books'
+                        elif any(word in name_lower for word in ['headphone', 'earphone', 'speaker']):
+                            product_info['category'] = 'Audio'
+                        else:
+                            product_info['category'] = 'General'
+                    
                     # Extract rating
                     rating_selectors = [
                         "span[class*='rating']",
@@ -2286,7 +2685,7 @@ class MyntraScraper(EcommerceScraper):
                             continue
                     
                     # If we found any meaningful information, add it
-                    if product_info.get('title') or product_info.get('price'):
+                    if product_info.get('name') or product_info.get('price'):
                         product_info['site'] = 'Myntra'
                         products_info.append(product_info)
                         
@@ -2314,12 +2713,19 @@ class MyntraScraper(EcommerceScraper):
                     logger.error(f"Myntra: Error extracting details for product {i+1}: {e}")
                     continue
             
+            # Combine basic and detailed products
+            all_products = products_info.copy()
+            if detailed_products:
+                # Replace basic products with detailed ones where available
+                for i, detailed in enumerate(detailed_products):
+                    if i < len(all_products):
+                        all_products[i].update(detailed)
+            
             return {
                 "site": "Myntra",
                 "query": query,
-                "total_products": len(products_info),
-                "basic_products": products_info,
-                "detailed_products": detailed_products
+                "total_products": len(all_products),
+                "products": all_products
             }
             
         except Exception as e:
@@ -2716,10 +3122,22 @@ def search_specific(site):
         scraper = scrapers[site]
         result = scraper.search(query, max_results)
         
+        # Check if result has an error
+        if "error" in result:
+            return jsonify({
+                "success": False,
+                "query": query,
+                "error": result["error"],
+                "products": []
+            })
+        
+        # Return the result directly with success status
         return jsonify({
             "success": True,
             "query": query,
-            "result": result
+            "site": result.get("site", site),
+            "total_products": result.get("total_products", 0),
+            "products": result.get("products", [])
         })
         
     except Exception as e:
