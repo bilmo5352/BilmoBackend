@@ -2768,6 +2768,10 @@ def home():
             .result { margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; border-left: 4px solid #007bff; }
             .error { border-left-color: #dc3545; background-color: #f8d7da; }
             .success { border-left-color: #28a745; background-color: #d4edda; }
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
         </style>
     </head>
     <body>
@@ -2871,19 +2875,29 @@ GET /search/amazon?query=laptop&max_results=10
             </div>
             
             <div class="test-section">
-                <h2>🧪 Test the API</h2>
-                <p>Try searching for products:</p>
-                <input type="text" id="searchQuery" placeholder="Enter product name (e.g., iphone 14)" value="iphone 14">
-                <button onclick="searchAll()">Search All Platforms</button>
-                <button onclick="searchAmazon()">Search Amazon</button>
-                <button onclick="searchFlipkart()">Search Flipkart</button>
-                <button onclick="searchMeesho()">Search Meesho</button>
-                <button onclick="searchMyntra()">Search Myntra</button>
-                <br><br>
-                <button onclick="searchAmazonDetailed()" style="background-color: #28a745;">🔍 Amazon Detailed</button>
-                <button onclick="searchFlipkartDetailed()" style="background-color: #28a745;">🔍 Flipkart Detailed</button>
-                <button onclick="searchMeeshoDetailed()" style="background-color: #28a745;">🔍 Meesho Detailed</button>
-                <button onclick="searchMyntraDetailed()" style="background-color: #28a745;">🔍 Myntra Detailed</button>
+                <h2>🚀 Unified Search</h2>
+                <p style="text-align: center; font-size: 18px; color: #666; margin-bottom: 30px;">
+                    Search all websites simultaneously with a single click
+                </p>
+                
+                <div style="text-align: center; margin: 30px 0;">
+                    <input type="text" id="searchQuery" placeholder="Enter product name (e.g., iPhone 15, Nike shoes, Samsung phone)" 
+                           style="width: 500px; padding: 15px; font-size: 16px; border: 2px solid #ddd; border-radius: 25px; margin-bottom: 20px;" />
+                    <br>
+                    <button onclick="searchAll()" 
+                            style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                                   color: white; border: none; padding: 15px 40px; 
+                                   border-radius: 25px; font-size: 18px; font-weight: bold; 
+                                   cursor: pointer; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+                                   transition: transform 0.2s ease;">
+                        🔍 Search All Websites
+                    </button>
+                </div>
+                
+                <div id="loadingIndicator" style="display: none; text-align: center; margin: 20px 0;">
+                    <div style="border: 3px solid #f3f3f3; border-top: 3px solid #667eea; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+                    <p style="margin-top: 15px; color: #666;">Searching Amazon, Flipkart, Meesho & Myntra...</p>
+                </div>
                 
                 <div id="result"></div>
             </div>
@@ -2979,14 +2993,66 @@ GET /search/amazon?query=laptop&max_results=10
                     const response = await fetch(url);
                     const data = await response.json();
                     showResult(data, !data.success);
+                    
+                    // Add download functionality for unified search
+                    if (url.includes('/search?') && data.success) {
+                        addDownloadButton(data);
+                    }
                 } catch (error) {
                     showResult({error: error.message}, true);
+                } finally {
+                    // Hide loading indicator and re-enable button
+                    document.getElementById('loadingIndicator').style.display = 'none';
+                    const searchButton = document.querySelector('button[onclick="searchAll()"]');
+                    if (searchButton) {
+                        searchButton.disabled = false;
+                        searchButton.textContent = '🔍 Search All Websites';
+                    }
                 }
             }
             
+            function addDownloadButton(data) {
+                // Create download button if it doesn't exist
+                let downloadBtn = document.getElementById('downloadBtn');
+                if (!downloadBtn) {
+                    downloadBtn = document.createElement('button');
+                    downloadBtn.id = 'downloadBtn';
+                    downloadBtn.style.cssText = 'background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-top: 15px;';
+                    downloadBtn.textContent = '📥 Download Complete Results (JSON)';
+                    document.getElementById('result').appendChild(downloadBtn);
+                }
+                
+                // Set up download functionality
+                downloadBtn.onclick = function() {
+                    const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `unified_search_${data.query.replace(/\s+/g, '_')}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                };
+            }
+            
             function searchAll() {
-                const query = encodeURIComponent(getQuery());
-                makeRequest(`/search?query=${query}&max_results=3`);
+                const query = getQuery();
+                if (!query) {
+                    showResult({error: 'Please enter a search query'}, true);
+                    return;
+                }
+                
+                // Show loading indicator
+                document.getElementById('loadingIndicator').style.display = 'block';
+                document.getElementById('result').style.display = 'none';
+                
+                // Disable the search button
+                const searchButton = document.querySelector('button[onclick="searchAll()"]');
+                searchButton.disabled = true;
+                searchButton.textContent = '⏳ Searching...';
+                
+                makeRequest(`/search?query=${encodeURIComponent(query)}&max_results=8`);
             }
             
             function searchAmazon() {

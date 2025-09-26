@@ -40,15 +40,15 @@ def create_driver(headless: bool = False) -> webdriver.Chrome:
         # Try with ChromeDriverManager first
         service = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=chrome_options)
-        print("✅ Myntra WebDriver initialized with ChromeDriverManager")
+        print("Myntra WebDriver initialized with ChromeDriverManager")
     except Exception as e:
-        print(f"⚠️ ChromeDriverManager failed: {e}")
+        print(f"ChromeDriverManager failed: {e}")
         try:
             # Fallback to system ChromeDriver
             driver = webdriver.Chrome(options=chrome_options)
-            print("✅ Myntra WebDriver initialized with system ChromeDriver")
+            print("Myntra WebDriver initialized with system ChromeDriver")
         except Exception as e2:
-            print(f"❌ All ChromeDriver methods failed: {e2}")
+            print(f"All ChromeDriver methods failed: {e2}")
             raise e2
     
     # Execute JavaScript to remove webdriver properties
@@ -828,37 +828,76 @@ def search_myntra(query: str, headless: bool = False, max_results: int = 8):
                     "div[class*='final-price'] span"  # Final price div
                 ]
                 
+                # Extract current price and MRP separately
+                current_price = ""
+                mrp_price = ""
+                
                 for selector in price_selectors:
                     try:
                         price_elem = card.find_element(By.CSS_SELECTOR, selector)
                         price_text = price_elem.text.strip()
                         if price_text and ('₹' in price_text or 'Rs' in price_text or price_text.replace(',', '').replace('.', '').isdigit()):
-                            product_info['price'] = price_text
-                            break
+                            # Check if this is likely the current price (not struck through)
+                            try:
+                                parent_elem = price_elem.find_element(By.XPATH, "./..")
+                                parent_classes = parent_elem.get_attribute('class') or ''
+                                
+                                # If parent has strikethrough, it's likely MRP
+                                if 'strike' in parent_classes.lower() or 'mrp' in parent_classes.lower():
+                                    if not mrp_price:
+                                        mrp_price = price_text
+                                else:
+                                    if not current_price:
+                                        current_price = price_text
+                            except:
+                                # If we can't determine, assume it's current price
+                                if not current_price:
+                                    current_price = price_text
+                                    
                     except:
                         continue
                 
-                # More comprehensive original price selectors - updated for Myntra structure
-                original_price_selectors = [
-                    "span.product-strike",  # Strike price (exact class)
-                    "span[class*='product-strike']",  # Strike price
-                    "span[class*='product-mrp']",  # MRP price
-                    "div[class*='product-mrp'] span",  # MRP price div
-                    "span[class*='mrp']",  # Generic MRP
-                    "div[class*='mrp'] span",  # Generic MRP div
-                    "span[class*='original-price']",  # Original price
-                    "div[class*='original-price'] span"  # Original price div
-                ]
+                # Set the final price - prioritize current price over MRP
+                if current_price:
+                    product_info['price'] = current_price
+                    if mrp_price:
+                        product_info['mrp'] = mrp_price
+                        # Calculate discount percentage
+                        try:
+                            current_num = float(current_price.replace('₹', '').replace(',', '').replace('Rs', '').strip())
+                            mrp_num = float(mrp_price.replace('₹', '').replace(',', '').replace('Rs', '').strip())
+                            if mrp_num > current_num:
+                                discount_percent = ((mrp_num - current_num) / mrp_num) * 100
+                                product_info["discount_percentage"] = f"{discount_percent:.0f}% off"
+                                product_info["discount_amount"] = f"₹{mrp_num - current_num:,.0f}"
+                        except:
+                            pass
+                elif mrp_price:
+                    product_info['price'] = mrp_price
                 
-                for selector in original_price_selectors:
-                    try:
-                        price_elem = card.find_element(By.CSS_SELECTOR, selector)
-                        price_text = price_elem.text.strip()
-                        if price_text and ('₹' in price_text or 'Rs' in price_text):
-                            product_info['original_price'] = price_text
+                # Extract reviews count
+                try:
+                    card_text = card.text.strip()
+                    lines = card_text.split('\n')
+                    for line in lines:
+                        line = line.strip()
+                        if ('rating' in line.lower() or 'review' in line.lower()) and ',' in line:
+                            product_info['reviews_count'] = line
                             break
-                    except:
-                        continue
+                except:
+                    pass
+                
+                # Extract availability
+                try:
+                    card_text = card.text.strip()
+                    lines = card_text.split('\n')
+                    for line in lines:
+                        line = line.strip()
+                        if 'stock' in line.lower() or 'available' in line.lower() or 'delivery' in line.lower():
+                            product_info['availability'] = line
+                            break
+                except:
+                    pass
                 
                 # More comprehensive discount selectors - updated for Myntra structure
                 discount_selectors = [

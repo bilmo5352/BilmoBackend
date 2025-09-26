@@ -40,15 +40,15 @@ def create_driver(headless: bool = False) -> webdriver.Chrome:
         # Try with ChromeDriverManager first
         service = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=chrome_options)
-        print("✅ Flipkart WebDriver initialized with ChromeDriverManager")
+        print("Flipkart WebDriver initialized with ChromeDriverManager")
     except Exception as e:
-        print(f"⚠️ ChromeDriverManager failed: {e}")
+        print(f"ChromeDriverManager failed: {e}")
         try:
             # Fallback to system ChromeDriver
             driver = webdriver.Chrome(options=chrome_options)
-            print("✅ Flipkart WebDriver initialized with system ChromeDriver")
+            print("Flipkart WebDriver initialized with system ChromeDriver")
         except Exception as e2:
-            print(f"❌ All ChromeDriver methods failed: {e2}")
+            print(f"All ChromeDriver methods failed: {e2}")
             raise e2
     
     # Execute JavaScript to remove webdriver properties
@@ -62,11 +62,17 @@ def extract_product_details(driver: webdriver.Chrome) -> dict:
     product_details = {
         "name": "",
         "price": "",
+        "mrp": "",
+        "discount_percentage": "",
+        "discount_amount": "",
         "brand": "",
         "category": "",
         "rating": "",
+        "reviews_count": "",
+        "availability": "",
         "link": driver.current_url,
-        "images": []
+        "images": [],
+        "specifications": {}
     }
     
     try:
@@ -96,7 +102,7 @@ def extract_product_details(driver: webdriver.Chrome) -> dict:
             except:
                 continue
         
-        # Extract price - comprehensive selectors
+        # Extract price - comprehensive selectors with MRP and discount handling
         price_selectors = [
             "div._30jeq3",  # Main price
             "div[class*='_30jeq3']",
@@ -113,16 +119,56 @@ def extract_product_details(driver: webdriver.Chrome) -> dict:
             "span[class*='price']"
         ]
         
+        # Extract current price and MRP separately
+        current_price = ""
+        mrp_price = ""
+        
         for selector in price_selectors:
             try:
                 price_elem = driver.find_element(By.CSS_SELECTOR, selector)
                 price_text = price_elem.text.strip()
                 if price_text and ('₹' in price_text or 'Rs' in price_text or 'INR' in price_text):
-                    product_details["price"] = price_text
-                    print(f"    Found price: {price_text}")
-                    break
+                    # Check if this is likely the current price (not struck through)
+                    try:
+                        parent_elem = price_elem.find_element(By.XPATH, "./..")
+                        parent_classes = parent_elem.get_attribute('class') or ''
+                        
+                        # If parent has strikethrough, it's likely MRP
+                        if 'strike' in parent_classes.lower() or 'mrp' in parent_classes.lower():
+                            if not mrp_price:
+                                mrp_price = price_text
+                                print(f"    Found MRP: {price_text}")
+                        else:
+                            if not current_price:
+                                current_price = price_text
+                                print(f"    Found current price: {price_text}")
+                    except:
+                        # If we can't determine, assume it's current price
+                        if not current_price:
+                            current_price = price_text
+                            
             except:
                 continue
+        
+        # Set the final price - prioritize current price over MRP
+        if current_price:
+            product_details["price"] = current_price
+            if mrp_price:
+                product_details["mrp"] = mrp_price
+                # Calculate discount percentage
+                try:
+                    current_num = float(current_price.replace('₹', '').replace(',', '').replace('Rs', '').strip())
+                    mrp_num = float(mrp_price.replace('₹', '').replace(',', '').replace('Rs', '').strip())
+                    if mrp_num > current_num:
+                        discount_percent = ((mrp_num - current_num) / mrp_num) * 100
+                        product_details["discount_percentage"] = f"{discount_percent:.0f}% off"
+                        product_details["discount_amount"] = f"₹{mrp_num - current_num:,.0f}"
+                        print(f"    Calculated discount: {product_details['discount_percentage']} (₹{product_details['discount_amount']} off)")
+                except:
+                    pass
+        elif mrp_price:
+            product_details["price"] = mrp_price
+            print(f"    Warning: Only MRP found, no current price detected")
         
         # Extract brand (from breadcrumbs or product name)
         try:
@@ -162,6 +208,55 @@ def extract_product_details(driver: webdriver.Chrome) -> dict:
                 if category_text:
                     product_details["category"] = category_text
                     print(f"    Found category: {category_text}")
+        except:
+            pass
+        
+        # Extract reviews count
+        try:
+            review_count_selectors = [
+                "span._2_R_DZ",  # Reviews count
+                "span[class*='_2_R_DZ']",
+                "div[class*='_2_R_DZ']",
+                "span[class*='review']",
+                "div[class*='review']",
+                "span[class*='rating']",
+                "div[class*='rating']"
+            ]
+            
+            for selector in review_count_selectors:
+                try:
+                    review_elem = driver.find_element(By.CSS_SELECTOR, selector)
+                    review_text = review_elem.text.strip()
+                    if review_text and ('rating' in review_text.lower() or 'review' in review_text.lower() or ',' in review_text):
+                        product_details["reviews_count"] = review_text
+                        print(f"    Found reviews count: {review_text}")
+                        break
+                except:
+                    continue
+        except:
+            pass
+        
+        # Extract availability
+        try:
+            availability_selectors = [
+                "span[class*='availability']",
+                "div[class*='availability']",
+                "span[class*='stock']",
+                "div[class*='stock']",
+                "span[class*='delivery']",
+                "div[class*='delivery']"
+            ]
+            
+            for selector in availability_selectors:
+                try:
+                    avail_elem = driver.find_element(By.CSS_SELECTOR, selector)
+                    avail_text = avail_elem.text.strip()
+                    if avail_text and ('stock' in avail_text.lower() or 'available' in avail_text.lower() or 'delivery' in avail_text.lower()):
+                        product_details["availability"] = avail_text
+                        print(f"    Found availability: {avail_text}")
+                        break
+                except:
+                    continue
         except:
             pass
         
@@ -300,8 +395,8 @@ def extract_product_details(driver: webdriver.Chrome) -> dict:
             except Exception as xpath_error:
                 print(f"    XPath image extraction error: {xpath_error}")
             
-            # Limit to first 5 images to avoid too much data
-            product_details["images"] = all_images[:5]
+            # Limit to first 8 images to avoid too much data
+            product_details["images"] = all_images[:8]
             print(f"    Final result: Found {len(product_details['images'])} product images")
             
             # Debug: print first image URL if available
@@ -312,51 +407,45 @@ def extract_product_details(driver: webdriver.Chrome) -> dict:
             print(f"    Error extracting images: {e}")
             product_details["images"] = []
         
-        # Fallback: Try XPath selectors if CSS selectors failed
-        if not product_details["price"]:
-            try:
-                # Try to find price using XPath
-                price_xpaths = [
-                    "//div[contains(text(), '₹')]",
-                    "//span[contains(text(), '₹')]",
-                    "//div[contains(@class, 'price')]",
-                    "//span[contains(@class, 'price')]"
-                ]
-                
-                for xpath in price_xpaths:
-                    try:
-                        price_elem = driver.find_element(By.XPATH, xpath)
-                        price_text = price_elem.text.strip()
-                        if price_text and ('₹' in price_text or 'Rs' in price_text):
-                            product_details["price"] = price_text
-                            print(f"    Found price via XPath: {price_text}")
-                            break
-                    except:
-                        continue
-            except:
-                pass
-        
-        if not product_details["rating"]:
-            try:
-                # Try to find rating using XPath
-                rating_xpaths = [
-                    "//div[contains(@class, 'rating')]",
-                    "//span[contains(@class, 'rating')]",
-                    "//div[contains(text(), '.') and string-length(text()) < 5]"
-                ]
-                
-                for xpath in rating_xpaths:
-                    try:
-                        rating_elem = driver.find_element(By.XPATH, xpath)
-                        rating_text = rating_elem.text.strip()
-                        if rating_text and rating_text.replace('.', '').replace(',', '').isdigit():
-                            product_details["rating"] = rating_text
-                            print(f"    Found rating via XPath: {rating_text}")
-                            break
-                    except:
-                        continue
-            except:
-                pass
+        # Extract specifications
+        try:
+            print(f"    Extracting specifications...")
+            
+            spec_selectors = [
+                "div[class*='specification'] table tr",  # Specification table rows
+                "div[class*='specification'] div",  # Specification divs
+                "div[class*='details'] table tr",  # Details table rows
+                "div[class*='details'] div",  # Details divs
+                "div[class*='features'] div",  # Features divs
+                "div[class*='product-features'] div"  # Product features divs
+            ]
+            
+            specifications = {}
+            
+            for selector in spec_selectors:
+                try:
+                    spec_elements = driver.find_elements(By.CSS_SELECTOR, selector)
+                    for elem in spec_elements:
+                        text = elem.text.strip()
+                        if text and len(text) > 10 and ':' in text:
+                            # Try to parse key-value pairs
+                            parts = text.split(':', 1)
+                            if len(parts) == 2:
+                                key = parts[0].strip()
+                                value = parts[1].strip()
+                                if key and value:
+                                    specifications[key] = value
+                    if specifications:
+                        break
+                except:
+                    continue
+            
+            product_details["specifications"] = specifications
+            print(f"    Found {len(specifications)} specifications")
+            
+        except Exception as e:
+            print(f"    Error extracting specifications: {e}")
+            product_details["specifications"] = {}
         
         # Debug: Print what we found
         print(f"    Final extracted data: {product_details}")

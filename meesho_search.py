@@ -362,6 +362,30 @@ def search_meesho(query: str, headless: bool = False):
                 except:
                     pass
                 
+                # Extract reviews count
+                try:
+                    card_text = card.text.strip()
+                    lines = card_text.split('\n')
+                    for line in lines:
+                        line = line.strip()
+                        if ('rating' in line.lower() or 'review' in line.lower()) and ',' in line:
+                            product_info['reviews_count'] = line
+                            break
+                except:
+                    pass
+                
+                # Extract availability
+                try:
+                    card_text = card.text.strip()
+                    lines = card_text.split('\n')
+                    for line in lines:
+                        line = line.strip()
+                        if 'delivery' in line.lower() or 'stock' in line.lower() or 'available' in line.lower():
+                            product_info['availability'] = line
+                            break
+                except:
+                    pass
+                
                 # If we found any meaningful information, add it
                 if product_info.get('title') or product_info.get('price'):
                     products_info.append(product_info)
@@ -494,11 +518,17 @@ def extract_product_details(driver: webdriver.Chrome) -> dict:
     product_details = {
         "name": "",
         "price": "",
+        "mrp": "",
+        "discount_percentage": "",
+        "discount_amount": "",
         "brand": "",
         "category": "",
         "rating": "",
+        "reviews_count": "",
+        "availability": "",
         "link": driver.current_url,
-        "images": []
+        "images": [],
+        "specifications": {}
     }
     
     try:

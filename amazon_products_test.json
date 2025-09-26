@@ -1,0 +1,37 @@
+{
+  "query": "test",
+  "search_url": "https://www.amazon.in/s?k=test&ref=nb_sb_noss",
+  "total_products": 8,
+  "products": [
+    {
+      "price": "209",
+      "rating": "11,575",
+      "reviews": "11,575"
+    },
+    {
+      "price": "17"
+    },
+    {
+      "price": "175",
+      "rating": "3,886",
+      "reviews": "3,886"
+    },
+    {
+      "price": "589"
+    },
+    {
+      "price": "572",
+      "rating": "41,539",
+      "reviews": "41,539"
+    },
+    {
+      "price": "999"
+    },
+    {
+      "price": "299"
+    },
+    {
+      "price": "562"
+    }
+  ]
+}

@@ -40,15 +40,15 @@ def create_driver(headless: bool = False) -> webdriver.Chrome:
         # Try with ChromeDriverManager first
         service = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=chrome_options)
-        print("✅ Amazon WebDriver initialized with ChromeDriverManager")
+        print("Amazon WebDriver initialized with ChromeDriverManager")
     except Exception as e:
-        print(f"⚠️ ChromeDriverManager failed: {e}")
+        print(f"ChromeDriverManager failed: {e}")
         try:
             # Fallback to system ChromeDriver
             driver = webdriver.Chrome(options=chrome_options)
-            print("✅ Amazon WebDriver initialized with system ChromeDriver")
+            print("Amazon WebDriver initialized with system ChromeDriver")
         except Exception as e2:
-            print(f"❌ All ChromeDriver methods failed: {e2}")
+            print(f"All ChromeDriver methods failed: {e2}")
             raise e2
     
     # Execute JavaScript to remove webdriver properties
