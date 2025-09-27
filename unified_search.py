@@ -296,12 +296,11 @@ def main():
     if result['summary']['categories_found']:
         print(f"Categories Found: {', '.join(result['summary']['categories_found'][:5])}{'...' if len(result['summary']['categories_found']) > 5 else ''}")
     
-    # Save combined results to JSON file
-    output_file = f"unified_search_results_{query.replace(' ', '_')}.json"
-    with open(output_file, 'w', encoding='utf-8') as f:
-        json.dump(result, f, indent=2, ensure_ascii=False)
-    
-    print(f"\n💾 Combined results saved to: {output_file}")
+    # Display combined results as JSON without saving to file
+    print(f"\n{'='*60}")
+    print(f"UNIFIED SEARCH RESULTS (JSON FORMAT)")
+    print(f"{'='*60}")
+    print(json.dumps(result, indent=2, ensure_ascii=False))
     
     # Display sample products
     if result['all_products']:
@@ -320,7 +319,7 @@ def main():
                 print(f"   Link: {product['link'][:80]}...")
     
     print(f"\n🎉 Unified search completed!")
-    print(f"📁 Check '{output_file}' for complete results")
+    print(f"📄 Complete JSON results displayed above (no files saved)")
 
 if __name__ == "__main__":
     main()

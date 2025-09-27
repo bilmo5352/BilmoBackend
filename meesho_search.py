@@ -417,17 +417,18 @@ def search_meesho(query: str, headless: bool = False):
         else:
             print("No product information could be extracted.")
 
-        # Save extracted data to JSON file
+        # Display JSON data without saving to file
         if products_info:
-            json_filename = f"meesho_products_{query.replace(' ', '_')}.json"
-            with open(json_filename, 'w', encoding='utf-8') as f:
-                json.dump({
-                    'query': query,
-                    'search_url': driver.current_url,
-                    'total_products': len(products_info),
-                    'products': products_info
-                }, f, indent=2, ensure_ascii=False)
-            print(f"\nProduct data also saved as: {json_filename}")
+            json_data = {
+                'query': query,
+                'search_url': driver.current_url,
+                'total_products': len(products_info),
+                'products': products_info
+            }
+            print(f"\n{'='*60}")
+            print(f"PRODUCT DATA (JSON FORMAT)")
+            print(f"{'='*60}")
+            print(json.dumps(json_data, indent=2, ensure_ascii=False))
             
             # Create detailed products from search results data (since individual pages are blocked)
             detailed_products = []
@@ -483,25 +484,23 @@ def search_meesho(query: str, headless: bool = False):
                     print(f"   Link: {product.get('link', 'Link not found')}")
                     print("-" * 80)
                 
-                # Save detailed products to JSON
-                detailed_json_filename = f"meesho_detailed_products_{query.replace(' ', '_')}.json"
-                with open(detailed_json_filename, 'w', encoding='utf-8') as f:
-                    json.dump({
-                        'query': query,
-                        'search_url': driver.current_url,
-                        'total_products': len(detailed_products),
-                        'products': detailed_products
-                    }, f, indent=2, ensure_ascii=False)
-                print(f"\nDetailed product data saved as: {detailed_json_filename}")
+                # Display detailed products JSON without saving to file
+                detailed_json_data = {
+                    'query': query,
+                    'search_url': driver.current_url,
+                    'total_products': len(detailed_products),
+                    'products': detailed_products
+                }
+                print(f"\n{'='*60}")
+                print(f"DETAILED PRODUCT DATA (JSON FORMAT)")
+                print(f"{'='*60}")
+                print(json.dumps(detailed_json_data, indent=2, ensure_ascii=False))
             else:
                 print("\nNo detailed product information could be extracted.")
 
         print(f"\nFiles created:")
         print(f"- {filename} (Search results HTML)")
-        if products_info:
-            print(f"- {json_filename} (Basic product data JSON)")
-            if detailed_products:
-                print(f"- {detailed_json_filename} (Detailed product data JSON)")
+        print("JSON data displayed in console (no files saved)")
         
         print("Closing browser automatically...")
         time.sleep(2)  # Brief pause to show completion message

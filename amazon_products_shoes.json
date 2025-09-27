@@ -1,0 +1,44 @@
+{
+  "query": "shoes",
+  "search_url": "https://www.amazon.in/s?k=shoes&ref=nb_sb_noss",
+  "total_products": 8,
+  "products": [
+    {
+      "price": "749",
+      "rating": "1,730",
+      "reviews": "1,730"
+    },
+    {
+      "price": "579",
+      "rating": "23,895",
+      "reviews": "23,895"
+    },
+    {
+      "price": "3,019",
+      "rating": "740"
+    },
+    {
+      "price": "470",
+      "rating": "2,185",
+      "reviews": "2,185"
+    },
+    {
+      "price": "1,099",
+      "rating": "8,035",
+      "reviews": "8,035"
+    },
+    {
+      "price": "649",
+      "rating": "342"
+    },
+    {
+      "price": "440",
+      "rating": "510"
+    },
+    {
+      "price": "1,099",
+      "rating": "5,004",
+      "reviews": "5,004"
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "query": "laptop",
+  "search_url": "https://www.amazon.in/s?k=laptop&ref=nb_sb_noss",
+  "total_products": 8,
+  "products": [
+    {
+      "price": "26,990",
+      "rating": "1,588",
+      "reviews": "1,588"
+    },
+    {
+      "price": "50,990",
+      "rating": "254"
+    },
+    {
+      "price": "1,15,000",
+      "rating": "503"
+    },
+    {
+      "price": "79,990",
+      "rating": "77"
+    },
+    {
+      "price": "30,990",
+      "rating": "1,588",
+      "reviews": "1,588"
+    },
+    {
+      "price": "35,490",
+      "rating": "507"
+    },
+    {
+      "price": "67,990"
+    },
+    {
+      "price": "46,990",
+      "rating": "208"
+    }
+  ]
+}

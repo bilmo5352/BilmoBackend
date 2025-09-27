@@ -20,6 +20,12 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 import logging
+from datetime import datetime
+import os
+import shutil
+import tempfile
+import pymongo
+from pymongo import MongoClient
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -28,55 +34,198 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
+# MongoDB Configuration
+MONGODB_URI = "mongodb+srv://hrithick:hrimee@0514@goat.kgtnygx.mongodb.net/?retryWrites=true&w=majority&appName=goat"
+DB_NAME = "scraper_db"
+COLLECTION_NAME = "search_results"
+
+# MongoDB connection
+mongodb_client = None
+mongodb_db = None
+mongodb_collection = None
+
+def connect_mongodb():
+    """Connect to MongoDB Atlas"""
+    global mongodb_client, mongodb_db, mongodb_collection
+    try:
+        mongodb_client = MongoClient(MONGODB_URI)
+        mongodb_db = mongodb_client[DB_NAME]
+        mongodb_collection = mongodb_db[COLLECTION_NAME]
+        # Test connection
+        mongodb_client.admin.command('ping')
+        logger.info("✅ Successfully connected to MongoDB Atlas")
+        return True
+    except Exception as e:
+        logger.error(f"❌ MongoDB connection error: {e}")
+        return False
+
+def save_to_mongodb(data, search_type, query, platform=None):
+    """Save search results to MongoDB"""
+    global mongodb_collection
+    if not mongodb_collection:
+        if not connect_mongodb():
+            return False
+    
+    try:
+        document = {
+            "search_type": search_type,
+            "query": query,
+            "platform": platform,
+            "timestamp": datetime.now(),
+            "data": data,
+            "total_results": len(data) if isinstance(data, list) else 1
+        }
+        
+        result = mongodb_collection.insert_one(document)
+        logger.info(f"✅ Saved {search_type} search for '{query}' to MongoDB with ID: {result.inserted_id}")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Failed to save to MongoDB: {e}")
+        return False
+
+def cleanup_mongodb():
+    """Close MongoDB connection"""
+    global mongodb_client
+    if mongodb_client:
+        mongodb_client.close()
+        logger.info("✅ MongoDB connection closed")
+
+# Add cleanup function for graceful shutdown
+import atexit
+
+def cleanup_drivers():
+    """Clean up all drivers on app shutdown"""
+    logger.info("🧹 Cleaning up all drivers...")
+    with driver_lock:
+        while driver_pool:
+            try:
+                driver = driver_pool.pop()
+                driver.quit()
+                logger.info("✅ Driver cleaned up")
+            except:
+                pass
+    logger.info("✅ All drivers cleaned up")
+
+def cleanup_temp_dirs():
+    """Clean up all temporary directories"""
+    logger.info("🧹 Cleaning up temporary directories...")
+    with temp_dirs_lock:
+        for temp_dir in temp_dirs[:]:  # Copy list to avoid modification during iteration
+            try:
+                if os.path.exists(temp_dir):
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+                    logger.info(f"✅ Cleaned up temp directory: {temp_dir}")
+                temp_dirs.remove(temp_dir)
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to clean temp directory {temp_dir}: {e}")
+    logger.info("✅ All temporary directories cleaned up")
+
+def cleanup_old_json_files():
+    """Clean up old JSON files to prevent accumulation"""
+    try:
+        import glob
+        json_files = glob.glob("unified_search_*.json") + glob.glob("*_search_*.json") + glob.glob("*_detailed_*.json")
+        
+        # Keep only the 10 most recent files
+        if len(json_files) > 10:
+            # Sort by modification time (newest first)
+            json_files.sort(key=os.path.getmtime, reverse=True)
+            files_to_delete = json_files[10:]
+            
+            for file_path in files_to_delete:
+                try:
+                    os.remove(file_path)
+                    logger.info(f"🧹 Deleted old JSON file: {file_path}")
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to delete {file_path}: {e}")
+                    
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to clean up old JSON files: {e}")
+
+def cleanup_all():
+    """Clean up everything"""
+    cleanup_drivers()
+    cleanup_temp_dirs()
+    cleanup_old_json_files()
+    cleanup_mongodb()
+
+# Register cleanup function
+atexit.register(cleanup_all)
+
 # Global driver pool for concurrent requests
 driver_pool = []
 driver_lock = threading.Lock()
 
+# Global list to track temporary directories for cleanup
+temp_dirs = []
+temp_dirs_lock = threading.Lock()
+
 def create_driver(headless: bool = True) -> webdriver.Chrome:
-    """Create a Chrome WebDriver with optimized settings"""
+    """Create a Chrome WebDriver with stable settings"""
     chrome_options = Options()
     if headless:
-        chrome_options.add_argument("--headless=new")
+        chrome_options.add_argument("--headless")
         chrome_options.add_argument("--window-size=1920,1080")
+    
+    # Essential stability options
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-extensions")
-    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
     chrome_options.add_argument("--disable-web-security")
-    chrome_options.add_argument("--enable-unsafe-swiftshader")
-    
-    # Enhanced anti-detection measures
+    chrome_options.add_argument("--disable-features=VizDisplayCompositor")
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+    
+    # Anti-detection measures
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option('useAutomationExtension', False)
     
-    # Additional stealth options
-    chrome_options.add_argument("--disable-features=VizDisplayCompositor")
-    chrome_options.add_argument("--disable-ipc-flooding-protection")
-    chrome_options.add_argument("--disable-renderer-backgrounding")
+    # Memory optimization
+    chrome_options.add_argument("--disable-background-timer-throttling")
     chrome_options.add_argument("--disable-backgrounding-occluded-windows")
-    chrome_options.add_argument("--disable-client-side-phishing-detection")
-    chrome_options.add_argument("--disable-sync")
+    chrome_options.add_argument("--disable-renderer-backgrounding")
     chrome_options.add_argument("--disable-default-apps")
+    chrome_options.add_argument("--disable-sync")
+    chrome_options.add_argument("--disable-translate")
+    chrome_options.add_argument("--hide-scrollbars")
+    chrome_options.add_argument("--mute-audio")
+    chrome_options.add_argument("--no-first-run")
+    
+    # Temporary files cleanup - use a single shared directory
+    shared_temp_dir = os.path.join(tempfile.gettempdir(), "chrome_scraper_shared")
+    chrome_options.add_argument(f"--user-data-dir={shared_temp_dir}")
+    chrome_options.add_argument("--disk-cache-size=0")
+    chrome_options.add_argument("--media-cache-size=0")
+    
+    # Additional stability options for Windows
+    chrome_options.add_argument("--disable-background-timer-throttling")
+    chrome_options.add_argument("--disable-backgrounding-occluded-windows")
+    chrome_options.add_argument("--disable-renderer-backgrounding")
+    chrome_options.add_argument("--disable-features=TranslateUI")
+    chrome_options.add_argument("--disable-ipc-flooding-protection")
     chrome_options.add_argument("--disable-hang-monitor")
     chrome_options.add_argument("--disable-prompt-on-repost")
     chrome_options.add_argument("--disable-domain-reliability")
-    chrome_options.add_argument("--disable-features=TranslateUI")
-    chrome_options.add_argument("--disable-component-extensions-with-background-pages")
+    
+    # Track shared temporary directory for cleanup
+    if shared_temp_dir not in temp_dirs:
+        with temp_dirs_lock:
+            temp_dirs.append(shared_temp_dir)
     
     # User agent
     chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
     
     try:
-        service = Service(ChromeDriverManager().install())
-        driver = webdriver.Chrome(service=service, options=chrome_options)
-        logger.info("✅ WebDriver initialized successfully")
-    except Exception as e:
-        logger.warning(f"⚠️ ChromeDriverManager failed: {e}")
-        try:
+        # Try system ChromeDriver first (more reliable on Windows)
             driver = webdriver.Chrome(options=chrome_options)
             logger.info("✅ WebDriver initialized with system ChromeDriver")
+    except Exception as e:
+        logger.warning(f"⚠️ System ChromeDriver failed: {e}")
+        try:
+            # Fallback to ChromeDriverManager
+            service = Service(ChromeDriverManager().install())
+            driver = webdriver.Chrome(service=service, options=chrome_options)
+            logger.info("✅ WebDriver initialized with ChromeDriverManager")
         except Exception as e2:
             logger.error(f"❌ All ChromeDriver methods failed: {e2}")
             raise e2
@@ -93,15 +242,46 @@ def get_driver():
         if driver_pool:
             return driver_pool.pop()
         else:
+            # Add small delay to prevent driver conflicts
+            time.sleep(1)
             return create_driver()
 
 def return_driver(driver):
-    """Return a driver to the pool"""
-    with driver_lock:
-        if len(driver_pool) < 5:  # Limit pool size
-            driver_pool.append(driver)
-        else:
+    """Return a driver to the pool or quit it to save memory"""
+    try:
+        # Clear browser data to free up memory
+        driver.delete_all_cookies()
+        driver.execute_script("window.localStorage.clear();")
+        driver.execute_script("window.sessionStorage.clear();")
+        
+        # Use shared temporary directory
+        shared_temp_dir = os.path.join(tempfile.gettempdir(), "chrome_scraper_shared")
+        
+        with driver_lock:
+            # Always quit drivers to prevent memory accumulation
+            # Only keep 1 driver in pool maximum
+            if len(driver_pool) < 1:
+                driver_pool.append(driver)
+            else:
+                driver.quit()
+                logger.info("🧹 Driver quit to prevent memory leaks")
+                
+                # Clean up the shared temporary directory immediately
+                if os.path.exists(shared_temp_dir):
+                    try:
+                        shutil.rmtree(shared_temp_dir, ignore_errors=True)
+                        logger.info(f"🧹 Cleaned up shared temp directory: {shared_temp_dir}")
+                        # Recreate empty directory for next use
+                        os.makedirs(shared_temp_dir, exist_ok=True)
+                    except Exception as e:
+                        logger.warning(f"⚠️ Failed to clean shared temp directory {shared_temp_dir}: {e}")
+                        
+    except Exception as e:
+        logger.warning(f"Error cleaning up driver: {e}")
+        try:
             driver.quit()
+        except:
+            pass
 
 class EcommerceScraper:
     """Base class for e-commerce scrapers"""
@@ -580,30 +760,91 @@ class AmazonScraper(EcommerceScraper):
                         except:
                             pass
                     
-                    # Extract price
-                    try:
-                        # Primary price selector
-                        price_elem = card.find_element(By.CSS_SELECTOR, "span.a-price-whole")
-                        price_text = price_elem.text.strip()
-                        if price_text:
-                            product_info['price'] = f"₹{price_text}"
-                    except:
-                        try:
-                            # Fallback price selectors
+                    # Extract price - comprehensive approach for Amazon
                             price_selectors = [
+                        "span.a-price-whole",
                                 "span.a-price.a-text-price",
                                 "span.a-offscreen",
-                                ".a-price-range .a-price-whole"
+                        ".a-price-range .a-price-whole",
+                        "span[class*='price']",
+                        "div[class*='price']",
+                        "span[class*='cost']",
+                        "div[class*='cost']",
+                        "span[class*='amount']",
+                        "div[class*='amount']"
+                    ]
+                    
+                    for selector in price_selectors:
+                        try:
+                            price_elem = card.find_element(By.CSS_SELECTOR, selector)
+                            price_text = price_elem.text.strip()
+                            if price_text and ('₹' in price_text or 'Rs' in price_text or price_text.replace(',', '').replace('.', '').isdigit()):
+                                if not price_text.startswith('₹'):
+                                    product_info['price'] = f"₹{price_text}"
+                                else:
+                                    product_info['price'] = price_text
+                                break
+                        except:
+                            continue
+                    
+                    # Extract original price (MRP) - comprehensive approach for Amazon
+                    original_price_selectors = [
+                        "span.a-text-strike",
+                        "span.a-price.a-text-strike",
+                        "span[class*='strike']",
+                        "div[class*='strike']",
+                        "span[class*='mrp']",
+                        "div[class*='mrp']",
+                        "span[class*='original']",
+                        "div[class*='original']",
+                        "span[class*='list']",
+                        "div[class*='list']",
+                        "span[class*='was']",
+                        "div[class*='was']",
+                        "span[class*='before']",
+                        "div[class*='before']"
+                    ]
+                    
+                    for selector in original_price_selectors:
+                        try:
+                            orig_elem = card.find_element(By.CSS_SELECTOR, selector)
+                            orig_text = orig_elem.text.strip()
+                            if orig_text and ('₹' in orig_text or 'Rs' in orig_text or 'INR' in orig_text):
+                                product_info['original_price'] = orig_text
+                                break
+                        except:
+                            continue
+                    
+                    # Try to extract original price from card text content
+                    if not product_info.get('original_price'):
+                        try:
+                            import re
+                            card_text = card.text
+                            # Look for original price patterns in Amazon
+                            orig_price_patterns = [
+                                r'MRP[:\s]*₹\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',
+                                r'M\.R\.P[:\s]*₹\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',
+                                r'Original[:\s]*₹\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',
+                                r'Was[:\s]*₹\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',
+                                r'List[:\s]*₹\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',
+                                r'₹\s*(\d+(?:,\d{3})*(?:\.\d{2})?)\s*₹\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',  # Two prices
+                                r'₹\s*(\d+(?:,\d{3})*(?:\.\d{2})?)\s*-\s*₹\s*(\d+(?:,\d{3})*(?:\.\d{2})?)'  # Price range
                             ]
-                            for selector in price_selectors:
-                                try:
-                                    price_elem = card.find_element(By.CSS_SELECTOR, selector)
-                                    price_text = price_elem.text.strip()
-                                    if price_text and ('₹' in price_text or 'Rs' in price_text):
-                                        product_info['price'] = price_text
+                            
+                            for pattern in orig_price_patterns:
+                                match = re.search(pattern, card_text, re.IGNORECASE)
+                                if match:
+                                    if len(match.groups()) == 1:
+                                        orig_price_value = match.group(1)
+                                        product_info['original_price'] = f"₹{orig_price_value}"
                                         break
-                                except:
-                                    continue
+                                    elif len(match.groups()) == 2:
+                                        # If two prices found, use the higher one as original
+                                        price1 = int(match.group(1).replace(',', ''))
+                                        price2 = int(match.group(2).replace(',', ''))
+                                        higher_price = max(price1, price2)
+                                        product_info['original_price'] = f"₹{higher_price:,}"
+                                        break
                         except:
                             pass
                     
@@ -777,6 +1018,120 @@ class AmazonScraper(EcommerceScraper):
                             avail_text = avail_elem.text.strip()
                             if avail_text and ('stock' in avail_text.lower() or 'available' in avail_text.lower() or 'delivery' in avail_text.lower()):
                                 product_info['availability'] = avail_text
+                                break
+                        except:
+                            continue
+                    
+                    # Extract reviews count - comprehensive approach for Amazon
+                    reviews_selectors = [
+                        "a[href*='reviews']",
+                        "span[class*='review']",
+                        "div[class*='review']",
+                        "span[class*='rating']",
+                        "div[class*='rating']",
+                        "span[class*='count']",
+                        "div[class*='count']",
+                        "span[class*='total']",
+                        "div[class*='total']",
+                        "span[class*='number']",
+                        "div[class*='number']",
+                        "span[class*='reviews']",
+                        "div[class*='reviews']",
+                        "span[class*='ratings']",
+                        "div[class*='ratings']"
+                    ]
+                    
+                    for selector in reviews_selectors:
+                        try:
+                            reviews_elem = card.find_element(By.CSS_SELECTOR, selector)
+                            reviews_text = reviews_elem.text.strip()
+                            if reviews_text and any(word in reviews_text.lower() for word in ['review', 'rating', 'feedback', 'comment']):
+                                # Extract number from text like "1,234 reviews" or "123 ratings"
+                                import re
+                                number_match = re.search(r'(\d+(?:,\d{3})*)', reviews_text)
+                                if number_match:
+                                    product_info['reviews_count'] = reviews_text
+                                    break
+                        except:
+                            continue
+                    
+                    # Try to extract reviews count from card text content
+                    if not product_info.get('reviews_count'):
+                        try:
+                            import re
+                            card_text = card.text
+                            # Look for reviews count patterns in Amazon
+                            reviews_patterns = [
+                                r'(\d+(?:,\d{3})*)\s*reviews?',
+                                r'(\d+(?:,\d{3})*)\s*ratings?',
+                                r'(\d+(?:,\d{3})*)\s*feedback',
+                                r'(\d+(?:,\d{3})*)\s*comments?',
+                                r'(\d+(?:,\d{3})*)\s*★',
+                                r'(\d+(?:,\d{3})*)\s*stars?',
+                                r'(\d+(?:,\d{3})*)\s*people',
+                                r'(\d+(?:,\d{3})*)\s*customers?'
+                            ]
+                            
+                            for pattern in reviews_patterns:
+                                match = re.search(pattern, card_text, re.IGNORECASE)
+                                if match:
+                                    reviews_count = match.group(1)
+                                    product_info['reviews_count'] = f"{reviews_count} reviews"
+                                    break
+                        except:
+                            pass
+                    
+                    # Calculate discount if we have both prices
+                    if product_info.get('price') and product_info.get('original_price'):
+                        try:
+                            import re
+                            current_price_text = product_info['price']
+                            original_price_text = product_info['original_price']
+                            
+                            # Extract numbers from price strings
+                            current_match = re.search(r'(\d+(?:,\d{3})*)', current_price_text)
+                            original_match = re.search(r'(\d+(?:,\d{3})*)', original_price_text)
+                            
+                            if current_match and original_match:
+                                current_price = int(current_match.group(1).replace(',', ''))
+                                original_price = int(original_match.group(1).replace(',', ''))
+                                
+                                if original_price > current_price:
+                                    discount_amount = original_price - current_price
+                                    discount_percentage = round((discount_amount / original_price) * 100)
+                                    product_info['discount'] = f"{discount_percentage}% off"
+                                    product_info['discount_amount'] = f"₹{discount_amount:,}"
+                        except:
+                            pass
+                    
+                    # Extract image URL - comprehensive approach for Amazon
+                    image_selectors = [
+                        "img[data-src]",  # Lazy loaded images
+                        "img[src]",       # Direct images
+                        "img[class*='s-image']",  # Amazon product images
+                        "img[class*='product']",  # Product images
+                        "img[class*='thumbnail']", # Thumbnail images
+                        "img[class*='main']",      # Main images
+                        "img[class*='primary']",    # Primary images
+                        "img[class*='hero']",      # Hero images
+                        "img[class*='gallery']",    # Gallery images
+                        "img[class*='carousel']",   # Carousel images
+                        "img[alt*='product']",      # Images with product alt text
+                        "img[alt*='Product']",      # Images with Product alt text
+                        "img"                       # Any image as fallback
+                    ]
+                    
+                    for selector in image_selectors:
+                        try:
+                            img_elem = card.find_element(By.CSS_SELECTOR, selector)
+                            img_src = img_elem.get_attribute('src') or img_elem.get_attribute('data-src') or ''
+                            img_alt = img_elem.get_attribute('alt') or ''
+                            
+                            if img_src and ('amazon' in img_src.lower() or 'ssl-images' in img_src.lower() or 'media-amazon' in img_src.lower()):
+                                # Filter out placeholder images
+                                if not any(word in img_src.lower() for word in ['placeholder', 'loading', 'spinner', 'default']):
+                                    product_info['image_url'] = img_src
+                                    product_info['image_alt'] = img_alt
                                 break
                         except:
                             continue
@@ -1351,6 +1706,192 @@ class FlipkartScraper(EcommerceScraper):
                                     break
                         except:
                             pass
+                    
+                    # Extract original price (MRP) - comprehensive approach for Flipkart
+                    original_price_selectors = [
+                        "div._3I9_wc",  # Flipkart MRP selector
+                        "div[class*='_3I9_wc']",
+                        "span[class*='_3I9_wc']",
+                        "div[class*='_2Tpdn3']",  # Alternative MRP selector
+                        "span[class*='_2Tpdn3']",
+                        "div[class*='_1vC4OE']",  # Another MRP selector
+                        "span[class*='_1vC4OE']",
+                        "div[class*='strike']",
+                        "span[class*='strike']",
+                        "div[class*='mrp']",
+                        "span[class*='mrp']",
+                        "div[class*='original']",
+                        "span[class*='original']",
+                        "div[class*='list']",
+                        "span[class*='list']",
+                        "div[class*='was']",
+                        "span[class*='was']",
+                        "div[class*='before']",
+                        "span[class*='before']"
+                    ]
+                    
+                    for selector in original_price_selectors:
+                        try:
+                            orig_elem = card.find_element(By.CSS_SELECTOR, selector)
+                            orig_text = orig_elem.text.strip()
+                            if orig_text and ('₹' in orig_text or 'Rs' in orig_text or 'INR' in orig_text):
+                                product_info['original_price'] = orig_text
+                                break
+                        except:
+                            continue
+                    
+                    # Try to extract original price from card text content
+                    if not product_info.get('original_price'):
+                        try:
+                            import re
+                            card_text = card.text
+                            # Look for original price patterns in Flipkart
+                            orig_price_patterns = [
+                                r'MRP[:\s]*₹\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',
+                                r'M\.R\.P[:\s]*₹\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',
+                                r'Original[:\s]*₹\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',
+                                r'Was[:\s]*₹\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',
+                                r'List[:\s]*₹\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',
+                                r'₹\s*(\d+(?:,\d{3})*(?:\.\d{2})?)\s*₹\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',  # Two prices
+                                r'₹\s*(\d+(?:,\d{3})*(?:\.\d{2})?)\s*-\s*₹\s*(\d+(?:,\d{3})*(?:\.\d{2})?)'  # Price range
+                            ]
+                            
+                            for pattern in orig_price_patterns:
+                                match = re.search(pattern, card_text, re.IGNORECASE)
+                                if match:
+                                    if len(match.groups()) == 1:
+                                        orig_price_value = match.group(1)
+                                        product_info['original_price'] = f"₹{orig_price_value}"
+                                        break
+                                    elif len(match.groups()) == 2:
+                                        # If two prices found, use the higher one as original
+                                        price1 = int(match.group(1).replace(',', ''))
+                                        price2 = int(match.group(2).replace(',', ''))
+                                        higher_price = max(price1, price2)
+                                        product_info['original_price'] = f"₹{higher_price:,}"
+                                        break
+                        except:
+                            pass
+                    
+                    # Extract reviews count - comprehensive approach for Flipkart
+                    reviews_selectors = [
+                        "span._2_R_DZ",  # Flipkart reviews count
+                        "span[class*='_2_R_DZ']",
+                        "div[class*='_2_R_DZ']",
+                        "span[class*='_3LWZlK']",  # Reviews near rating
+                        "div[class*='_3LWZlK']",
+                        "span[class*='review']",
+                        "div[class*='review']",
+                        "span[class*='rating']",
+                        "div[class*='rating']",
+                        "span[class*='count']",
+                        "div[class*='count']",
+                        "span[class*='total']",
+                        "div[class*='total']",
+                        "span[class*='number']",
+                        "div[class*='number']",
+                        "span[class*='reviews']",
+                        "div[class*='reviews']",
+                        "span[class*='ratings']",
+                        "div[class*='ratings']"
+                    ]
+                    
+                    for selector in reviews_selectors:
+                        try:
+                            reviews_elem = card.find_element(By.CSS_SELECTOR, selector)
+                            reviews_text = reviews_elem.text.strip()
+                            if reviews_text and any(word in reviews_text.lower() for word in ['review', 'rating', 'feedback', 'comment']):
+                                # Extract number from text like "1,234 reviews" or "123 ratings"
+                                import re
+                                number_match = re.search(r'(\d+(?:,\d{3})*)', reviews_text)
+                                if number_match:
+                                    product_info['reviews_count'] = reviews_text
+                                    break
+                        except:
+                            continue
+                    
+                    # Try to extract reviews count from card text content
+                    if not product_info.get('reviews_count'):
+                        try:
+                            import re
+                            card_text = card.text
+                            # Look for reviews count patterns in Flipkart
+                            reviews_patterns = [
+                                r'(\d+(?:,\d{3})*)\s*reviews?',
+                                r'(\d+(?:,\d{3})*)\s*ratings?',
+                                r'(\d+(?:,\d{3})*)\s*feedback',
+                                r'(\d+(?:,\d{3})*)\s*comments?',
+                                r'(\d+(?:,\d{3})*)\s*★',
+                                r'(\d+(?:,\d{3})*)\s*stars?',
+                                r'(\d+(?:,\d{3})*)\s*people',
+                                r'(\d+(?:,\d{3})*)\s*customers?'
+                            ]
+                            
+                            for pattern in reviews_patterns:
+                                match = re.search(pattern, card_text, re.IGNORECASE)
+                                if match:
+                                    reviews_count = match.group(1)
+                                    product_info['reviews_count'] = f"{reviews_count} reviews"
+                                    break
+                        except:
+                            pass
+                    
+                    # Calculate discount if we have both prices
+                    if product_info.get('price') and product_info.get('original_price'):
+                        try:
+                            import re
+                            current_price_text = product_info['price']
+                            original_price_text = product_info['original_price']
+                            
+                            # Extract numbers from price strings
+                            current_match = re.search(r'(\d+(?:,\d{3})*)', current_price_text)
+                            original_match = re.search(r'(\d+(?:,\d{3})*)', original_price_text)
+                            
+                            if current_match and original_match:
+                                current_price = int(current_match.group(1).replace(',', ''))
+                                original_price = int(original_match.group(1).replace(',', ''))
+                                
+                                if original_price > current_price:
+                                    discount_amount = original_price - current_price
+                                    discount_percentage = round((discount_amount / original_price) * 100)
+                                    product_info['discount'] = f"{discount_percentage}% off"
+                                    product_info['discount_amount'] = f"₹{discount_amount:,}"
+                        except:
+                            pass
+                    
+                    # Extract image URL - comprehensive approach for Flipkart
+                    image_selectors = [
+                        "img[data-src]",  # Lazy loaded images
+                        "img[src]",       # Direct images
+                        "img[class*='_396cs4']",  # Flipkart product images
+                        "img[class*='_2r_T1I']",  # Alternative Flipkart images
+                        "img[class*='_1Nyybr']",  # Another Flipkart image class
+                        "img[class*='product']",  # Product images
+                        "img[class*='thumbnail']", # Thumbnail images
+                        "img[class*='main']",      # Main images
+                        "img[class*='primary']",    # Primary images
+                        "img[class*='hero']",      # Hero images
+                        "img[class*='gallery']",    # Gallery images
+                        "img[class*='carousel']",   # Carousel images
+                        "img[alt*='product']",      # Images with product alt text
+                        "img[alt*='Product']",      # Images with Product alt text
+                        "img"                       # Any image as fallback
+                    ]
+                    
+                    for selector in image_selectors:
+                        try:
+                            img_elem = card.find_element(By.CSS_SELECTOR, selector)
+                            img_src = img_elem.get_attribute('src') or img_elem.get_attribute('data-src') or ''
+                            img_alt = img_elem.get_attribute('alt') or ''
+                            
+                            if img_src and ('flipkart' in img_src.lower() or 'img.fkcdn' in img_src.lower() or 'rukminim2' in img_src.lower()):
+                                # Filter out placeholder images
+                                if not any(word in img_src.lower() for word in ['placeholder', 'loading', 'spinner', 'default']):
+                                    product_info['image_url'] = img_src
+                                    product_info['image_alt'] = img_alt
+                                    break
+                        except:
+                            continue
                     
                     # Extract brand - comprehensive approach for Flipkart
                     brand_selectors = [
@@ -1950,7 +2491,7 @@ class MeeshoScraper(EcommerceScraper):
                         else:
                             product_info['category'] = 'General'
                     
-                    # Extract price
+                    # Extract price - improved selectors for Meesho
                     price_selectors = [
                         "span[class*='price']",
                         "div[class*='price']",
@@ -1958,19 +2499,61 @@ class MeeshoScraper(EcommerceScraper):
                         "div[class*='selling']",
                         "span[class*='mrp']",
                         "div[class*='mrp']",
+                        "span[class*='cost']",
+                        "div[class*='cost']",
+                        "span[class*='amount']",
+                        "div[class*='amount']",
+                        "span[class*='rupee']",
+                        "div[class*='rupee']",
+                        "span[class*='rs']",
+                        "div[class*='rs']",
+                        "span[class*='₹']",
+                        "div[class*='₹']",
+                        "span[class*='ProductPrice']",
+                        "div[class*='ProductPrice']",
+                        "span[class*='product-price']",
+                        "div[class*='product-price']",
+                        "span[class*='selling-price']",
+                        "div[class*='selling-price']",
+                        "span[class*='current-price']",
+                        "div[class*='current-price']"
                     ]
                     
                     for selector in price_selectors:
                         try:
                             price_elem = card.find_element(By.CSS_SELECTOR, selector)
                             price_text = price_elem.text.strip()
-                            if price_text and ('₹' in price_text or 'Rs' in price_text or 'INR' in price_text):
+                            if price_text and ('₹' in price_text or 'Rs' in price_text or 'INR' in price_text or price_text.replace(',', '').replace('.', '').isdigit()):
                                 product_info['price'] = price_text
                                 break
                         except:
                             continue
                     
-                    # Extract rating - comprehensive approach for Meesho
+                    # Try to extract price from card text content if selectors fail
+                    if not product_info['price']:
+                        try:
+                            import re
+                            card_text = card.text
+                            # Look for price patterns in Meesho
+                            price_patterns = [
+                                r'₹\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',
+                                r'Rs\.?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',
+                                r'INR\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',
+                                r'(\d+(?:,\d{3})*(?:\.\d{2})?)\s*₹',
+                                r'(\d+(?:,\d{3})*(?:\.\d{2})?)\s*Rs',
+                                r'(\d+(?:,\d{3})*(?:\.\d{2})?)\s*INR'
+                            ]
+                            
+                            for pattern in price_patterns:
+                                match = re.search(pattern, card_text)
+                                if match:
+                                    price_value = match.group(1)
+                                    product_info['price'] = f"₹{price_value}"
+                                    break
+                        except:
+                            pass
+                    
+                    # Extract rating - improved comprehensive approach for Meesho
                     rating_selectors = [
                         "div[class*='rating']",
                         "span[class*='rating']",
@@ -1981,7 +2564,21 @@ class MeeshoScraper(EcommerceScraper):
                         "div[class*='score']",
                         "span[class*='score']",
                         "div[class*='average']",
-                        "span[class*='average']"
+                        "span[class*='average']",
+                        "div[class*='rate']",
+                        "span[class*='rate']",
+                        "div[class*='stars']",
+                        "span[class*='stars']",
+                        "div[class*='reviews']",
+                        "span[class*='reviews']",
+                        "div[class*='ratings']",
+                        "span[class*='ratings']",
+                        "div[class*='feedback']",
+                        "span[class*='feedback']",
+                        "div[class*='evaluation']",
+                        "span[class*='evaluation']",
+                        "div[class*='grade']",
+                        "span[class*='grade']"
                     ]
                     
                     for selector in rating_selectors:
@@ -1994,12 +2591,12 @@ class MeeshoScraper(EcommerceScraper):
                         except:
                             continue
                     
-                    # Try to extract rating from card text content
+                    # Try to extract rating from card text content with improved patterns
                     if not product_info['rating']:
                         try:
                             import re
                             card_text = card.text
-                            # Look for rating patterns in Meesho
+                            # Look for rating patterns in Meesho - improved patterns
                             rating_patterns = [
                                 r'(\d+\.?\d*)\s*out\s*of\s*5',
                                 r'(\d+\.?\d*)\s*★',
@@ -2008,16 +2605,213 @@ class MeeshoScraper(EcommerceScraper):
                                 r'(\d+\.?\d*)\s*ratings',
                                 r'(\d+\.?\d*)\s*reviews',
                                 r'(\d+\.?\d*)\s*★\s*\d+',
-                                r'(\d+\.?\d*)\s*,\d+\s*Ratings'
+                                r'(\d+\.?\d*)\s*,\d+\s*Ratings',
+                                r'(\d+\.?\d*)\s*★\s*\((\d+)\)',
+                                r'(\d+\.?\d*)\s*out\s*of\s*5\s*stars',
+                                r'(\d+\.?\d*)\s*★\s*stars',
+                                r'(\d+\.?\d*)\s*\/\s*5',
+                                r'(\d+\.?\d*)\s*of\s*5',
+                                r'(\d+\.?\d*)\s*★\s*\((\d+)\s*ratings\)',
+                                r'(\d+\.?\d*)\s*★\s*\((\d+)\s*reviews\)'
                             ]
                             
                             for pattern in rating_patterns:
                                 match = re.search(pattern, card_text, re.IGNORECASE)
                                 if match:
                                     rating_value = match.group(1)
-                                    if float(rating_value) <= 5.0:
-                                        product_info['rating'] = rating_value
+                                    try:
+                                        rating_float = float(rating_value)
+                                        if 0 <= rating_float <= 5.0:
+                                            product_info['rating'] = rating_value
+                                            break
+                                    except ValueError:
+                                        continue
+                        except:
+                            pass
+                    
+                    # Additional aggressive rating extraction methods for Meesho
+                    if not product_info.get('rating'):
+                        try:
+                            import re
+                            card_text = card.text
+                            
+                            # Look for any number that could be a rating (0.0 to 5.0)
+                            rating_patterns = [
+                                r'\b(\d+\.?\d*)\s*★',
+                                r'\b(\d+\.?\d*)\s*stars?',
+                                r'\b(\d+\.?\d*)\s*out\s*of\s*5',
+                                r'\b(\d+\.?\d*)\s*\/\s*5',
+                                r'\b(\d+\.?\d*)\s*of\s*5',
+                                r'Rating[:\s]*(\d+\.?\d*)',
+                                r'Score[:\s]*(\d+\.?\d*)',
+                                r'(\d+\.?\d*)\s*★\s*\((\d+)\)',
+                                r'(\d+\.?\d*)\s*★\s*stars?\s*\((\d+)\)',
+                                r'(\d+\.?\d*)\s*★\s*\((\d+)\s*ratings?\)',
+                                r'(\d+\.?\d*)\s*★\s*\((\d+)\s*reviews?\)'
+                            ]
+                            
+                            for pattern in rating_patterns:
+                                match = re.search(pattern, card_text, re.IGNORECASE)
+                                if match:
+                                    rating_value = match.group(1)
+                                    try:
+                                        rating_float = float(rating_value)
+                                        if 0 <= rating_float <= 5.0:
+                                            product_info['rating'] = rating_value
+                                            break
+                                    except ValueError:
+                                        continue
+                        except:
+                            pass
+                    
+                    # Extract original price (MRP) - comprehensive approach for Meesho
+                    original_price_selectors = [
+                        "span[class*='mrp']",
+                        "div[class*='mrp']",
+                        "span[class*='original']",
+                        "div[class*='original']",
+                        "span[class*='list']",
+                        "div[class*='list']",
+                        "span[class*='marked']",
+                        "div[class*='marked']",
+                        "span[class*='strike']",
+                        "div[class*='strike']",
+                        "span[class*='cross']",
+                        "div[class*='cross']",
+                        "span[class*='old']",
+                        "div[class*='old']",
+                        "span[class*='was']",
+                        "div[class*='was']",
+                        "span[class*='before']",
+                        "div[class*='before']",
+                        "span[class*='previous']",
+                        "div[class*='previous']"
+                    ]
+                    
+                    for selector in original_price_selectors:
+                        try:
+                            orig_elem = card.find_element(By.CSS_SELECTOR, selector)
+                            orig_text = orig_elem.text.strip()
+                            if orig_text and ('₹' in orig_text or 'Rs' in orig_text or 'INR' in orig_text):
+                                product_info['original_price'] = orig_text
+                                break
+                        except:
+                            continue
+                    
+                    # Try to extract original price from card text content
+                    if not product_info.get('original_price'):
+                        try:
+                            import re
+                            card_text = card.text
+                            # Look for original price patterns in Meesho
+                            orig_price_patterns = [
+                                r'MRP[:\s]*₹\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',
+                                r'Original[:\s]*₹\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',
+                                r'Was[:\s]*₹\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',
+                                r'List[:\s]*₹\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',
+                                r'₹\s*(\d+(?:,\d{3})*(?:\.\d{2})?)\s*₹\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',  # Two prices
+                                r'₹\s*(\d+(?:,\d{3})*(?:\.\d{2})?)\s*-\s*₹\s*(\d+(?:,\d{3})*(?:\.\d{2})?)'  # Price range
+                            ]
+                            
+                            for pattern in orig_price_patterns:
+                                match = re.search(pattern, card_text, re.IGNORECASE)
+                                if match:
+                                    if len(match.groups()) == 1:
+                                        orig_price_value = match.group(1)
+                                        product_info['original_price'] = f"₹{orig_price_value}"
                                         break
+                                    elif len(match.groups()) == 2:
+                                        # If two prices found, use the higher one as original
+                                        price1 = int(match.group(1).replace(',', ''))
+                                        price2 = int(match.group(2).replace(',', ''))
+                                        higher_price = max(price1, price2)
+                                        product_info['original_price'] = f"₹{higher_price:,}"
+                                        break
+                        except:
+                            pass
+                    
+                    # Extract reviews count - comprehensive approach for Meesho
+                    reviews_selectors = [
+                        "span[class*='review']",
+                        "div[class*='review']",
+                        "span[class*='rating']",
+                        "div[class*='rating']",
+                        "span[class*='count']",
+                        "div[class*='count']",
+                        "span[class*='total']",
+                        "div[class*='total']",
+                        "span[class*='number']",
+                        "div[class*='number']",
+                        "span[class*='reviews']",
+                        "div[class*='reviews']",
+                        "span[class*='ratings']",
+                        "div[class*='ratings']",
+                        "span[class*='feedback']",
+                        "div[class*='feedback']",
+                        "span[class*='comments']",
+                        "div[class*='comments']"
+                    ]
+                    
+                    for selector in reviews_selectors:
+                        try:
+                            reviews_elem = card.find_element(By.CSS_SELECTOR, selector)
+                            reviews_text = reviews_elem.text.strip()
+                            if reviews_text and any(word in reviews_text.lower() for word in ['review', 'rating', 'feedback', 'comment']):
+                                # Extract number from text like "1,234 reviews" or "123 ratings"
+                                import re
+                                number_match = re.search(r'(\d+(?:,\d{3})*)', reviews_text)
+                                if number_match:
+                                    product_info['reviews_count'] = reviews_text
+                                    break
+                        except:
+                            continue
+                    
+                    # Try to extract reviews count from card text content
+                    if not product_info.get('reviews_count'):
+                        try:
+                            import re
+                            card_text = card.text
+                            # Look for reviews count patterns in Meesho
+                            reviews_patterns = [
+                                r'(\d+(?:,\d{3})*)\s*reviews?',
+                                r'(\d+(?:,\d{3})*)\s*ratings?',
+                                r'(\d+(?:,\d{3})*)\s*feedback',
+                                r'(\d+(?:,\d{3})*)\s*comments?',
+                                r'(\d+(?:,\d{3})*)\s*★',
+                                r'(\d+(?:,\d{3})*)\s*stars?',
+                                r'(\d+(?:,\d{3})*)\s*people',
+                                r'(\d+(?:,\d{3})*)\s*customers?'
+                            ]
+                            
+                            for pattern in reviews_patterns:
+                                match = re.search(pattern, card_text, re.IGNORECASE)
+                                if match:
+                                    reviews_count = match.group(1)
+                                    product_info['reviews_count'] = f"{reviews_count} reviews"
+                                    break
+                        except:
+                            pass
+                    
+                    # Calculate discount if we have both prices
+                    if product_info.get('price') and product_info.get('original_price'):
+                        try:
+                            import re
+                            current_price_text = product_info['price']
+                            original_price_text = product_info['original_price']
+                            
+                            # Extract numbers from price strings
+                            current_match = re.search(r'(\d+(?:,\d{3})*)', current_price_text)
+                            original_match = re.search(r'(\d+(?:,\d{3})*)', original_price_text)
+                            
+                            if current_match and original_match:
+                                current_price = int(current_match.group(1).replace(',', ''))
+                                original_price = int(original_match.group(1).replace(',', ''))
+                                
+                                if original_price > current_price:
+                                    discount_amount = original_price - current_price
+                                    discount_percentage = round((discount_amount / original_price) * 100)
+                                    product_info['discount'] = f"{discount_percentage}% off"
+                                    product_info['discount_amount'] = f"₹{discount_amount:,}"
                         except:
                             pass
                     
@@ -2659,14 +3453,32 @@ class MyntraScraper(EcommerceScraper):
                         else:
                             product_info['category'] = 'General'
                     
-                    # Extract rating
+                    # Extract rating - comprehensive approach for Myntra
                     rating_selectors = [
                         "span[class*='rating']",
                         "div[class*='rating'] span",
                         "span[class*='stars']",
                         "div[class*='stars'] span",
                         "span[class*='review']",
-                        "div[class*='review'] span"
+                        "div[class*='review'] span",
+                        "span[class*='score']",
+                        "div[class*='score'] span",
+                        "span[class*='average']",
+                        "div[class*='average'] span",
+                        "span[class*='rate']",
+                        "div[class*='rate'] span",
+                        "span[class*='stars']",
+                        "div[class*='stars'] span",
+                        "span[class*='reviews']",
+                        "div[class*='reviews'] span",
+                        "span[class*='ratings']",
+                        "div[class*='ratings'] span",
+                        "span[class*='feedback']",
+                        "div[class*='feedback'] span",
+                        "span[class*='evaluation']",
+                        "div[class*='evaluation'] span",
+                        "span[class*='grade']",
+                        "div[class*='grade'] span"
                     ]
                     
                     for selector in rating_selectors:
@@ -2681,6 +3493,160 @@ class MyntraScraper(EcommerceScraper):
                                         break
                                 except ValueError:
                                     continue
+                        except:
+                            continue
+                    
+                    # Additional aggressive rating extraction methods for Myntra
+                    if not product_info.get('rating'):
+                        try:
+                            import re
+                            card_text = card.text
+                            
+                            # Look for any number that could be a rating (0.0 to 5.0)
+                            rating_patterns = [
+                                r'\b(\d+\.?\d*)\s*★',
+                                r'\b(\d+\.?\d*)\s*stars?',
+                                r'\b(\d+\.?\d*)\s*out\s*of\s*5',
+                                r'\b(\d+\.?\d*)\s*\/\s*5',
+                                r'\b(\d+\.?\d*)\s*of\s*5',
+                                r'Rating[:\s]*(\d+\.?\d*)',
+                                r'Score[:\s]*(\d+\.?\d*)',
+                                r'(\d+\.?\d*)\s*★\s*\((\d+)\)',
+                                r'(\d+\.?\d*)\s*★\s*stars?\s*\((\d+)\)',
+                                r'(\d+\.?\d*)\s*★\s*\((\d+)\s*ratings?\)',
+                                r'(\d+\.?\d*)\s*★\s*\((\d+)\s*reviews?\)'
+                            ]
+                            
+                            for pattern in rating_patterns:
+                                match = re.search(pattern, card_text, re.IGNORECASE)
+                                if match:
+                                    rating_value = match.group(1)
+                                    try:
+                                        rating_float = float(rating_value)
+                                        if 0 <= rating_float <= 5.0:
+                                            product_info['rating'] = rating_value
+                                            break
+                                    except ValueError:
+                                        continue
+                        except:
+                            pass
+                    
+                    # Extract reviews count - comprehensive approach for Myntra
+                    reviews_selectors = [
+                        "span[class*='review']",
+                        "div[class*='review']",
+                        "span[class*='rating']",
+                        "div[class*='rating']",
+                        "span[class*='count']",
+                        "div[class*='count']",
+                        "span[class*='total']",
+                        "div[class*='total']",
+                        "span[class*='number']",
+                        "div[class*='number']",
+                        "span[class*='reviews']",
+                        "div[class*='reviews']",
+                        "span[class*='ratings']",
+                        "div[class*='ratings']",
+                        "span[class*='feedback']",
+                        "div[class*='feedback']",
+                        "span[class*='comments']",
+                        "div[class*='comments']"
+                    ]
+                    
+                    for selector in reviews_selectors:
+                        try:
+                            reviews_elem = card.find_element(By.CSS_SELECTOR, selector)
+                            reviews_text = reviews_elem.text.strip()
+                            if reviews_text and any(word in reviews_text.lower() for word in ['review', 'rating', 'feedback', 'comment']):
+                                # Extract number from text like "1,234 reviews" or "123 ratings"
+                                import re
+                                number_match = re.search(r'(\d+(?:,\d{3})*)', reviews_text)
+                                if number_match:
+                                    product_info['reviews_count'] = reviews_text
+                                    break
+                        except:
+                            continue
+                    
+                    # Try to extract reviews count from card text content
+                    if not product_info.get('reviews_count'):
+                        try:
+                            import re
+                            card_text = card.text
+                            # Look for reviews count patterns in Myntra
+                            reviews_patterns = [
+                                r'(\d+(?:,\d{3})*)\s*reviews?',
+                                r'(\d+(?:,\d{3})*)\s*ratings?',
+                                r'(\d+(?:,\d{3})*)\s*feedback',
+                                r'(\d+(?:,\d{3})*)\s*comments?',
+                                r'(\d+(?:,\d{3})*)\s*★',
+                                r'(\d+(?:,\d{3})*)\s*stars?',
+                                r'(\d+(?:,\d{3})*)\s*people',
+                                r'(\d+(?:,\d{3})*)\s*customers?'
+                            ]
+                            
+                            for pattern in reviews_patterns:
+                                match = re.search(pattern, card_text, re.IGNORECASE)
+                                if match:
+                                    reviews_count = match.group(1)
+                                    product_info['reviews_count'] = f"{reviews_count} reviews"
+                                    break
+                        except:
+                            pass
+                    
+                    # Calculate discount if we have both prices but no discount found
+                    if product_info.get('price') and product_info.get('original_price') and not product_info.get('discount'):
+                        try:
+                            import re
+                            current_price_text = product_info['price']
+                            original_price_text = product_info['original_price']
+                            
+                            # Extract numbers from price strings
+                            current_match = re.search(r'(\d+(?:,\d{3})*)', current_price_text)
+                            original_match = re.search(r'(\d+(?:,\d{3})*)', original_price_text)
+                            
+                            if current_match and original_match:
+                                current_price = int(current_match.group(1).replace(',', ''))
+                                original_price = int(original_match.group(1).replace(',', ''))
+                                
+                                if original_price > current_price:
+                                    discount_amount = original_price - current_price
+                                    discount_percentage = round((discount_amount / original_price) * 100)
+                                    product_info['discount'] = f"{discount_percentage}% off"
+                                    product_info['discount_amount'] = f"₹{discount_amount:,}"
+                        except:
+                            pass
+                    
+                    # Extract image URL - comprehensive approach for Myntra
+                    image_selectors = [
+                        "img[data-src]",  # Lazy loaded images
+                        "img[src]",       # Direct images
+                        "img[class*='img-responsive']",  # Myntra responsive images
+                        "img[class*='product-image']",   # Myntra product images
+                        "img[class*='ProductImage']",    # Myntra Product images
+                        "img[class*='product']",         # Product images
+                        "img[class*='thumbnail']",       # Thumbnail images
+                        "img[class*='main']",            # Main images
+                        "img[class*='primary']",         # Primary images
+                        "img[class*='hero']",            # Hero images
+                        "img[class*='gallery']",         # Gallery images
+                        "img[class*='carousel']",        # Carousel images
+                        "img[alt*='product']",          # Images with product alt text
+                        "img[alt*='Product']",           # Images with Product alt text
+                        "img"                            # Any image as fallback
+                    ]
+                    
+                    for selector in image_selectors:
+                        try:
+                            img_elem = card.find_element(By.CSS_SELECTOR, selector)
+                            img_src = img_elem.get_attribute('src') or img_elem.get_attribute('data-src') or ''
+                            img_alt = img_elem.get_attribute('alt') or ''
+                            
+                            if img_src and ('myntra' in img_src.lower() or 'cdn.myntassets' in img_src.lower() or 'assets.myntassets' in img_src.lower()):
+                                # Filter out placeholder images
+                                if not any(word in img_src.lower() for word in ['placeholder', 'loading', 'spinner', 'default']):
+                                    product_info['image_url'] = img_src
+                                    product_info['image_alt'] = img_alt
+                                    break
                         except:
                             continue
                     
@@ -2746,368 +3712,73 @@ scrapers = {
 
 @app.route('/')
 def home():
-    """Home page with API documentation"""
-    html_template = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>E-commerce Scraper API</title>
-        <style>
-            body { font-family: Arial, sans-serif; margin: 40px; background-color: #f5f5f5; }
-            .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-            h1 { color: #333; text-align: center; margin-bottom: 30px; }
-            .api-section { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 5px; background-color: #f9f9f9; }
-            .endpoint { background-color: #e8f4f8; padding: 10px; border-radius: 3px; margin: 10px 0; font-family: monospace; }
-            .method { background-color: #4CAF50; color: white; padding: 2px 8px; border-radius: 3px; font-size: 12px; }
-            .method.post { background-color: #2196F3; }
-            .example { background-color: #f0f0f0; padding: 15px; border-radius: 5px; margin: 10px 0; font-family: monospace; font-size: 14px; }
-            .test-section { margin-top: 30px; padding: 20px; background-color: #fff3cd; border-radius: 5px; }
-            input[type="text"] { padding: 10px; width: 300px; border: 1px solid #ddd; border-radius: 3px; }
-            button { padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; margin-left: 10px; }
-            button:hover { background-color: #0056b3; }
-            .result { margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; border-left: 4px solid #007bff; }
-            .error { border-left-color: #dc3545; background-color: #f8d7da; }
-            .success { border-left-color: #28a745; background-color: #d4edda; }
-            @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>🛍️ E-commerce Scraper API</h1>
-            <p style="text-align: center; color: #666; font-size: 18px;">
-                Unified API for scraping products from Amazon, Flipkart, Meesho, and Myntra
-            </p>
-            
-            <div class="api-section">
-                <h2>📋 Available Endpoints</h2>
-                
-                <div class="endpoint">
-                    <span class="method">GET</span> <strong>/search</strong> - Search products from all platforms
-                    <br><small>Parameters: query (required), max_results (optional, default: 8)</small>
-                </div>
-                
-                <div class="endpoint">
-                    <span class="method">GET</span> <strong>/search/amazon</strong> - Search Amazon only
-                    <br><small>Parameters: query (required), max_results (optional, default: 8)</small>
-                </div>
-                
-                <div class="endpoint">
-                    <span class="method">GET</span> <strong>/search/flipkart</strong> - Search Flipkart only
-                    <br><small>Parameters: query (required), max_results (optional, default: 8)</small>
-                </div>
-                
-                <div class="endpoint">
-                    <span class="method">GET</span> <strong>/search/meesho</strong> - Search Meesho only
-                    <br><small>Parameters: query (required), max_results (optional, default: 8)</small>
-                </div>
-                
-                <div class="endpoint">
-                    <span class="method">GET</span> <strong>/search/myntra</strong> - Search Myntra only
-                    <br><small>Parameters: query (required), max_results (optional, default: 8)</small>
-                </div>
-                
-                <div class="endpoint">
-                    <span class="method">GET</span> <strong>/search/amazon/detailed</strong> - Search Amazon with detailed product info
-                    <br><small>Parameters: query (required), max_results (optional, default: 3)</small>
-                </div>
-                
-                <div class="endpoint">
-                    <span class="method">GET</span> <strong>/search/flipkart/detailed</strong> - Search Flipkart with detailed product info
-                    <br><small>Parameters: query (required), max_results (optional, default: 3)</small>
-                </div>
-                
-                <div class="endpoint">
-                    <span class="method">GET</span> <strong>/search/meesho/detailed</strong> - Search Meesho with detailed product info
-                    <br><small>Parameters: query (required), max_results (optional, default: 3)</small>
-                </div>
-                
-                <div class="endpoint">
-                    <span class="method">GET</span> <strong>/search/myntra/detailed</strong> - Search Myntra with detailed product info
-                    <br><small>Parameters: query (required), max_results (optional, default: 3)</small>
-                </div>
-                
-                <div class="endpoint">
-                    <span class="method">GET</span> <strong>/health</strong> - Health check endpoint
-                </div>
-            </div>
-            
-            <div class="api-section">
-                <h2>📝 Example Usage</h2>
-                
-                <h3>Search all platforms:</h3>
-                <div class="example">
-GET /search?query=iphone%2014&max_results=5
-                </div>
-                
-                <h3>Search specific platform:</h3>
-                <div class="example">
-GET /search/amazon?query=laptop&max_results=10
-                </div>
-                
-                <h3>Response format:</h3>
-                <div class="example">
-{
-  "success": true,
-  "total_results": 20,
-  "results": [
-    {
-      "site": "Amazon",
-      "query": "iphone 14",
-      "total_products": 5,
-      "products": [
-        {
-          "title": "Apple iPhone 14",
-          "price": "₹79,900",
-          "rating": "4.5 out of 5 stars",
-          "reviews": "1,234 ratings",
-          "availability": "In Stock",
-          "link": "https://amazon.in/...",
-          "site": "Amazon"
-        }
-      ]
-    }
-  ]
-}
-                </div>
-            </div>
-            
-            <div class="test-section">
-                <h2>🚀 Unified Search</h2>
-                <p style="text-align: center; font-size: 18px; color: #666; margin-bottom: 30px;">
-                    Search all websites simultaneously with a single click
-                </p>
-                
-                <div style="text-align: center; margin: 30px 0;">
-                    <input type="text" id="searchQuery" placeholder="Enter product name (e.g., iPhone 15, Nike shoes, Samsung phone)" 
-                           style="width: 500px; padding: 15px; font-size: 16px; border: 2px solid #ddd; border-radius: 25px; margin-bottom: 20px;" />
-                    <br>
-                    <button onclick="searchAll()" 
-                            style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                                   color: white; border: none; padding: 15px 40px; 
-                                   border-radius: 25px; font-size: 18px; font-weight: bold; 
-                                   cursor: pointer; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-                                   transition: transform 0.2s ease;">
-                        🔍 Search All Websites
-                    </button>
-                </div>
-                
-                <div id="loadingIndicator" style="display: none; text-align: center; margin: 20px 0;">
-                    <div style="border: 3px solid #f3f3f3; border-top: 3px solid #667eea; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto;"></div>
-                    <p style="margin-top: 15px; color: #666;">Searching Amazon, Flipkart, Meesho & Myntra...</p>
-                </div>
-                
-                <div id="result"></div>
-            </div>
-        </div>
-        
-        <script>
-            function getQuery() {
-                return document.getElementById('searchQuery').value;
-            }
-            
-            function showResult(data, isError = false) {
-                const resultDiv = document.getElementById('result');
-                resultDiv.className = 'result ' + (isError ? 'error' : 'success');
-                
-                // Check if this is a detailed search result
-                if (!isError && data.success && data.result && data.result.detailed_products) {
-                    displayDetailedResults(data);
-                } else {
-                    resultDiv.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
-                }
-            }
-            
-            function displayDetailedResults(data) {
-                const resultDiv = document.getElementById('result');
-                
-                const detailedProducts = data.result.detailed_products;
-                let html = '<div class="detailed-results">';
-                html += '<h3>🔍 Detailed Product Results</h3>';
-                html += `<p><strong>Site:</strong> ${data.result.site}</p>`;
-                html += `<p><strong>Query:</strong> ${data.result.query}</p>`;
-                html += `<p><strong>Total Products Found:</strong> ${data.result.total_products}</p>`;
-                html += `<p><strong>Detailed Products:</strong> ${detailedProducts.length}</p><br>`;
-                
-                detailedProducts.forEach((product, index) => {
-                    html += `<div class="product-card" style="border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 8px; background: #f9f9f9;">`;
-                    html += `<h4 style="color: #333; margin-top: 0;">${index + 1}. ${product.name || product.title || 'Product Name'}</h4>`;
-                    
-                    if (product.price) {
-                        html += `<p><strong>Price:</strong> <span style="color: #e74c3c; font-size: 1.2em;">${product.price}</span></p>`;
-                    }
-                    
-                    if (product.brand) {
-                        html += `<p><strong>Brand:</strong> ${product.brand}</p>`;
-                    }
-                    
-                    if (product.category) {
-                        html += `<p><strong>Category:</strong> ${product.category}</p>`;
-                    }
-                    
-                    if (product.rating) {
-                        html += `<p><strong>Rating:</strong> ⭐ ${product.rating}</p>`;
-                    }
-                    
-                    if (product.reviews_count) {
-                        html += `<p><strong>Reviews:</strong> ${product.reviews_count}</p>`;
-                    }
-                    
-                    if (product.availability) {
-                        html += `<p><strong>Availability:</strong> <span style="color: #27ae60;">${product.availability}</span></p>`;
-                    }
-                    
-                    if (product.link) {
-                        html += `<p><strong>Link:</strong> <a href="${product.link}" target="_blank" style="color: #3498db;">View Product →</a></p>`;
-                    }
-                    
-                    if (product.images && product.images.length > 0) {
-                        html += `<p><strong>Images:</strong></p>`;
-                        html += `<div class="image-gallery" style="display: flex; flex-wrap: wrap; gap: 10px;">`;
-                        product.images.forEach(img => {
-                            html += `<img src="${img.url}" alt="${img.alt}" style="max-width: 200px; height: auto; border: 1px solid #ddd; border-radius: 5px; cursor: pointer;" onclick="window.open('${img.url}', '_blank')">`;
-                        });
-                        html += `</div>`;
-                    }
-                    
-                    if (product.specifications && Object.keys(product.specifications).length > 0) {
-                        html += `<p><strong>Specifications:</strong></p>`;
-                        html += `<ul style="margin-left: 20px;">`;
-                        Object.entries(product.specifications).forEach(([key, value]) => {
-                            html += `<li><strong>${key}:</strong> ${value}</li>`;
-                        });
-                        html += `</ul>`;
-                    }
-                    
-                    html += `</div>`;
-                });
-                
-                html += '</div>';
-                resultDiv.innerHTML = html;
-            }
-            
-            async function makeRequest(url) {
-                try {
-                    const response = await fetch(url);
-                    const data = await response.json();
-                    showResult(data, !data.success);
-                    
-                    // Add download functionality for unified search
-                    if (url.includes('/search?') && data.success) {
-                        addDownloadButton(data);
-                    }
-                } catch (error) {
-                    showResult({error: error.message}, true);
-                } finally {
-                    // Hide loading indicator and re-enable button
-                    document.getElementById('loadingIndicator').style.display = 'none';
-                    const searchButton = document.querySelector('button[onclick="searchAll()"]');
-                    if (searchButton) {
-                        searchButton.disabled = false;
-                        searchButton.textContent = '🔍 Search All Websites';
-                    }
-                }
-            }
-            
-            function addDownloadButton(data) {
-                // Create download button if it doesn't exist
-                let downloadBtn = document.getElementById('downloadBtn');
-                if (!downloadBtn) {
-                    downloadBtn = document.createElement('button');
-                    downloadBtn.id = 'downloadBtn';
-                    downloadBtn.style.cssText = 'background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-top: 15px;';
-                    downloadBtn.textContent = '📥 Download Complete Results (JSON)';
-                    document.getElementById('result').appendChild(downloadBtn);
-                }
-                
-                // Set up download functionality
-                downloadBtn.onclick = function() {
-                    const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `unified_search_${data.query.replace(/\s+/g, '_')}.json`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                };
-            }
-            
-            function searchAll() {
-                const query = getQuery();
-                if (!query) {
-                    showResult({error: 'Please enter a search query'}, true);
-                    return;
-                }
-                
-                // Show loading indicator
-                document.getElementById('loadingIndicator').style.display = 'block';
-                document.getElementById('result').style.display = 'none';
-                
-                // Disable the search button
-                const searchButton = document.querySelector('button[onclick="searchAll()"]');
-                searchButton.disabled = true;
-                searchButton.textContent = '⏳ Searching...';
-                
-                makeRequest(`/search?query=${encodeURIComponent(query)}&max_results=8`);
-            }
-            
-            function searchAmazon() {
-                const query = encodeURIComponent(getQuery());
-                makeRequest(`/search/amazon?query=${query}&max_results=3`);
-            }
-            
-            function searchFlipkart() {
-                const query = encodeURIComponent(getQuery());
-                makeRequest(`/search/flipkart?query=${query}&max_results=3`);
-            }
-            
-            function searchMeesho() {
-                const query = encodeURIComponent(getQuery());
-                makeRequest(`/search/meesho?query=${query}&max_results=3`);
-            }
-            
-            function searchMyntra() {
-                const query = encodeURIComponent(getQuery());
-                makeRequest(`/search/myntra?query=${query}&max_results=3`);
-            }
-            
-            function searchAmazonDetailed() {
-                const query = encodeURIComponent(getQuery());
-                makeRequest(`/search/amazon/detailed?query=${query}&max_results=2`);
-            }
-            
-            function searchFlipkartDetailed() {
-                const query = encodeURIComponent(getQuery());
-                makeRequest(`/search/flipkart/detailed?query=${query}&max_results=2`);
-            }
-            
-            function searchMeeshoDetailed() {
-                const query = encodeURIComponent(getQuery());
-                makeRequest(`/search/meesho/detailed?query=${query}&max_results=2`);
-            }
-            
-            function searchMyntraDetailed() {
-                const query = encodeURIComponent(getQuery());
-                makeRequest(`/search/myntra/detailed?query=${query}&max_results=2`);
-            }
-        </script>
-    </body>
-    </html>
-    """
-    return render_template_string(html_template)
+    """API info page - no UI, just JSON endpoints"""
+    return jsonify({
+        "message": "E-commerce Scraper API - JSON Only",
+        "description": "No UI - All search results are automatically saved as JSON files and MongoDB",
+        "endpoints": {
+            "search_all": "GET /search?query=shoes&max_results=5",
+            "search_amazon": "GET /search/amazon?query=shoes&max_results=5", 
+            "search_flipkart": "GET /search/flipkart?query=shoes&max_results=5",
+            "search_meesho": "GET /search/meesho?query=shoes&max_results=5",
+            "search_myntra": "GET /search/myntra?query=shoes&max_results=5",
+            "detailed_search": "GET /search/amazon/detailed?query=shoes&max_results=3",
+            "mongodb_results": "GET /mongodb/results",
+            "mongodb_result": "GET /mongodb/results/<result_id>",
+            "health": "GET /health",
+            "cleanup": "POST /cleanup"
+        },
+        "note": "All search results are automatically saved as JSON files and MongoDB database",
+        "example": "curl 'http://localhost:5000/search?query=shoes&max_results=3'"
+    })
 
 @app.route('/health')
 def health_check():
     """Health check endpoint"""
-    return jsonify({
-        "status": "healthy",
-        "message": "E-commerce Scraper API is running",
-        "available_scrapers": list(scrapers.keys()),
-        "driver_pool_size": len(driver_pool)
+    # Check disk space
+    try:
+        import shutil
+        total, used, free = shutil.disk_usage(".")
+        free_gb = free // (1024**3)
+        total_gb = total // (1024**3)
+        
+        # Count JSON files
+        import glob
+        json_count = len(glob.glob("*.json"))
+        
+        # Check MongoDB connection
+        mongodb_status = "connected" if mongodb_collection else "disconnected"
+        mongodb_count = 0
+        if mongodb_collection:
+            try:
+                mongodb_count = mongodb_collection.count_documents({})
+            except:
+                mongodb_status = "error"
+        
+        return jsonify({
+            "status": "healthy",
+            "message": "E-commerce Scraper API is running",
+            "available_scrapers": list(scrapers.keys()),
+            "driver_pool_size": len(driver_pool),
+            "disk_space": {
+                "free_gb": free_gb,
+                "total_gb": total_gb,
+                "usage_percent": round((used / total) * 100, 2)
+            },
+            "json_files_count": json_count,
+            "temp_dirs_count": len(temp_dirs),
+            "mongodb": {
+                "status": mongodb_status,
+                "total_records": mongodb_count
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "healthy",
+            "message": "E-commerce Scraper API is running",
+            "available_scrapers": list(scrapers.keys()),
+            "driver_pool_size": len(driver_pool),
+            "error": f"Could not check disk space: {e}"
     })
 
 @app.route('/search')
@@ -3125,39 +3796,78 @@ def search_all():
     try:
         results = []
         
-        # Search all platforms concurrently
+        # Search all platforms concurrently with retry logic
         def search_platform(site_name, scraper):
-            try:
-                result = scraper.search(query, max_results)
-                results.append(result)
-            except Exception as e:
-                logger.error(f"Error searching {site_name}: {e}")
-                results.append({
-                    "site": site_name,
-                    "error": str(e),
-                    "products": []
-                })
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    logger.info(f"🔄 Searching {site_name} (attempt {attempt + 1}/{max_retries})")
+                    result = scraper.search(query, max_results)
+                    if result and (result.get('products') or result.get('basic_products')):
+                        logger.info(f"✅ {site_name} search successful - found {len(result.get('products', result.get('basic_products', [])))} products")
+                        results.append(result)
+                        return
+                    else:
+                        logger.warning(f"⚠️ {site_name} returned no products, retrying...")
+                except Exception as e:
+                    logger.error(f"❌ Error searching {site_name} (attempt {attempt + 1}): {e}")
+                    if attempt == max_retries - 1:
+                        logger.error(f"💥 {site_name} failed after {max_retries} attempts")
+                        results.append({
+                            "site": site_name,
+                            "error": str(e),
+                            "products": []
+                        })
+                    else:
+                        time.sleep(2)  # Wait before retry
         
-        # Create threads for concurrent searching
-        threads = []
+        # Search platforms sequentially to prevent Chrome conflicts
         for site_name, scraper in scrapers.items():
-            thread = threading.Thread(target=search_platform, args=(site_name, scraper))
-            threads.append(thread)
-            thread.start()
-        
-        # Wait for all threads to complete
-        for thread in threads:
-            thread.join()
+            search_platform(site_name, scraper)
+            time.sleep(2)  # Add delay between searches
         
         # Calculate total results
         total_results = sum(len(result.get('products', [])) for result in results)
         
-        return jsonify({
+        # Prepare response data
+        response_data = {
             "success": True,
             "query": query,
             "total_results": total_results,
             "results": results
-        })
+        }
+        
+        # Save results to JSON file
+        # Create filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_query = query.replace(' ', '_').replace('/', '_').replace('\\', '_')
+        filename = f"unified_search_{safe_query}_{timestamp}.json"
+        
+        try:
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(response_data, f, indent=2, ensure_ascii=False)
+            logger.info(f"Search results saved to: {filename}")
+        except Exception as e:
+            logger.error(f"Failed to save results to file: {e}")
+        
+        # Save to MongoDB
+        save_to_mongodb(response_data, "unified_search", query)
+        
+        # Immediately clean up temporary directories to free disk space
+        try:
+            shared_temp_dir = os.path.join(tempfile.gettempdir(), "chrome_scraper_shared")
+            if os.path.exists(shared_temp_dir):
+                shutil.rmtree(shared_temp_dir, ignore_errors=True)
+                logger.info(f"🧹 Immediate cleanup: freed disk space from {shared_temp_dir}")
+                # Recreate empty directory for next use
+                os.makedirs(shared_temp_dir, exist_ok=True)
+        except Exception as e:
+            logger.warning(f"⚠️ Immediate cleanup failed: {e}")
+        
+        # Clean up old JSON files to prevent accumulation
+        cleanup_old_json_files()
+        
+        return jsonify(response_data)
         
     except Exception as e:
         logger.error(f"Search all error: {e}")
@@ -3197,14 +3907,46 @@ def search_specific(site):
                 "products": []
             })
         
-        # Return the result directly with success status
-        return jsonify({
+        # Prepare response data
+        response_data = {
             "success": True,
             "query": query,
             "site": result.get("site", site),
             "total_products": result.get("total_products", 0),
             "products": result.get("products", [])
-        })
+        }
+        
+        # Save results to JSON file
+        # Create filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_query = query.replace(' ', '_').replace('/', '_').replace('\\', '_')
+        filename = f"{site}_search_{safe_query}_{timestamp}.json"
+        
+        try:
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(response_data, f, indent=2, ensure_ascii=False)
+            logger.info(f"Search results saved to: {filename}")
+        except Exception as e:
+            logger.error(f"Failed to save results to file: {e}")
+        
+        # Save to MongoDB
+        save_to_mongodb(response_data, "specific_search", query, site)
+        
+        # Immediately clean up temporary directories to free disk space
+        try:
+            shared_temp_dir = os.path.join(tempfile.gettempdir(), "chrome_scraper_shared")
+            if os.path.exists(shared_temp_dir):
+                shutil.rmtree(shared_temp_dir, ignore_errors=True)
+                logger.info(f"🧹 Immediate cleanup: freed disk space from {shared_temp_dir}")
+                # Recreate empty directory for next use
+                os.makedirs(shared_temp_dir, exist_ok=True)
+        except Exception as e:
+            logger.warning(f"⚠️ Immediate cleanup failed: {e}")
+        
+        # Clean up old JSON files to prevent accumulation
+        cleanup_old_json_files()
+        
+        return jsonify(response_data)
         
     except Exception as e:
         logger.error(f"Search {site} error: {e}")
@@ -3240,11 +3982,30 @@ def search_detailed(site):
         if hasattr(scraper, '_detailed_search'):
             delattr(scraper, '_detailed_search')
         
-        return jsonify({
+        # Prepare response data
+        response_data = {
             "success": True,
             "query": query,
             "result": result
-        })
+        }
+        
+        # Save results to JSON file
+        # Create filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_query = query.replace(' ', '_').replace('/', '_').replace('\\', '_')
+        filename = f"{site}_detailed_{safe_query}_{timestamp}.json"
+        
+        try:
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(response_data, f, indent=2, ensure_ascii=False)
+            logger.info(f"Detailed search results saved to: {filename}")
+        except Exception as e:
+            logger.error(f"Failed to save detailed results to file: {e}")
+        
+        # Save to MongoDB
+        save_to_mongodb(response_data, "detailed_search", query, site)
+        
+        return jsonify(response_data)
         
     except Exception as e:
         logger.error(f"Detailed search {site} error: {e}")
@@ -3252,6 +4013,74 @@ def search_detailed(site):
             "success": False,
             "error": str(e)
         }), 500
+
+@app.route('/mongodb/results')
+def get_mongodb_results():
+    """Get all search results from MongoDB"""
+    try:
+        if not mongodb_collection:
+            if not connect_mongodb():
+                return jsonify({
+                    "success": False,
+                    "error": "Failed to connect to MongoDB"
+                }), 500
+        
+        # Get all results, sorted by timestamp (newest first)
+        results = list(mongodb_collection.find({}, {"_id": 0}).sort("timestamp", -1).limit(100))
+        
+        return jsonify({
+            "success": True,
+            "total_results": len(results),
+            "results": results
+        })
+        
+    except Exception as e:
+        logger.error(f"MongoDB results error: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route('/mongodb/results/<result_id>')
+def get_mongodb_result(result_id):
+    """Get specific search result from MongoDB by ID"""
+    try:
+        if not mongodb_collection:
+            if not connect_mongodb():
+                return jsonify({
+                    "success": False,
+                    "error": "Failed to connect to MongoDB"
+                }), 500
+        
+        from pymongo import ObjectId
+        result = mongodb_collection.find_one({"_id": ObjectId(result_id)}, {"_id": 0})
+        
+        if not result:
+            return jsonify({
+                "success": False,
+                "error": "Result not found"
+            }), 404
+        
+        return jsonify({
+            "success": True,
+            "result": result
+        })
+        
+    except Exception as e:
+        logger.error(f"MongoDB result error: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route('/cleanup', methods=['POST'])
+def manual_cleanup():
+    """Manual cleanup endpoint to free memory and disk space"""
+    try:
+        cleanup_all()
+        return jsonify({"success": True, "message": "All drivers and temporary directories cleaned up successfully"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
 @app.errorhandler(404)
 def not_found(error):
@@ -3279,17 +4108,8 @@ def internal_error(error):
     }), 500
 
 if __name__ == '__main__':
-    # Initialize driver pool
-    logger.info("Initializing driver pool...")
-    for _ in range(2):  # Start with 2 drivers
-        try:
-            driver = create_driver()
-            driver_pool.append(driver)
-        except Exception as e:
-            logger.error(f"Failed to create initial driver: {e}")
-    
-    logger.info(f"Driver pool initialized with {len(driver_pool)} drivers")
-    logger.info("Starting Flask API server...")
+    logger.info("🚀 Starting Flask API server...")
+    logger.info("💡 Memory-optimized mode: Drivers created on-demand")
     
     # Run the Flask app
     app.run(host='0.0.0.0', port=5000, debug=True, threaded=True)

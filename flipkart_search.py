@@ -698,17 +698,18 @@ def search_flipkart(query: str, headless: bool = False, max_results: int = 8):
         else:
             print("No product information could be extracted.")
 
-        # Save extracted data to JSON file
+        # Display JSON data without saving to file
         if products_info:
-            json_filename = f"flipkart_products_{query.replace(' ', '_')}.json"
-            with open(json_filename, 'w', encoding='utf-8') as f:
-                json.dump({
-                    'query': query,
-                    'search_url': driver.current_url,
-                    'total_products': len(products_info),
-                    'products': products_info
-                }, f, indent=2, ensure_ascii=False)
-            print(f"\nProduct data also saved as: {json_filename}")
+            json_data = {
+                'query': query,
+                'search_url': driver.current_url,
+                'total_products': len(products_info),
+                'products': products_info
+            }
+            print(f"\n{'='*60}")
+            print(f"PRODUCT DATA (JSON FORMAT)")
+            print(f"{'='*60}")
+            print(json.dumps(json_data, indent=2, ensure_ascii=False))
             
             # Extract detailed product information by visiting each product page
             detailed_products = []
@@ -767,16 +768,17 @@ def search_flipkart(query: str, headless: bool = False, max_results: int = 8):
                     print(f"   Link: {product.get('link', 'Link not found')}")
                     print("-" * 80)
                 
-                # Save detailed products to JSON
-                detailed_json_filename = f"flipkart_detailed_products_{query.replace(' ', '_')}.json"
-                with open(detailed_json_filename, 'w', encoding='utf-8') as f:
-                    json.dump({
-                        'query': query,
-                        'search_url': driver.current_url,
-                        'total_products': len(detailed_products),
-                        'products': detailed_products
-                    }, f, indent=2, ensure_ascii=False)
-                print(f"\nDetailed product data saved as: {detailed_json_filename}")
+                # Display detailed products JSON without saving to file
+                detailed_json_data = {
+                    'query': query,
+                    'search_url': driver.current_url,
+                    'total_products': len(detailed_products),
+                    'products': detailed_products
+                }
+                print(f"\n{'='*60}")
+                print(f"DETAILED PRODUCT DATA (JSON FORMAT)")
+                print(f"{'='*60}")
+                print(json.dumps(detailed_json_data, indent=2, ensure_ascii=False))
             else:
                 print("\nNo detailed product information could be extracted.")
 

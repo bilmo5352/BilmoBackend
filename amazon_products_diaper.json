@@ -1,0 +1,47 @@
+{
+  "query": "diaper",
+  "search_url": "https://www.amazon.in/s?k=diaper&ref=nb_sb_noss",
+  "total_products": 8,
+  "products": [
+    {
+      "price": "537",
+      "rating": "22,478",
+      "reviews": "22,478"
+    },
+    {
+      "price": "539",
+      "rating": "9,116",
+      "reviews": "9,116"
+    },
+    {
+      "price": "370",
+      "rating": "9,116",
+      "reviews": "9,116"
+    },
+    {
+      "price": "520",
+      "rating": "22,478",
+      "reviews": "22,478"
+    },
+    {
+      "price": "539",
+      "rating": "9,116",
+      "reviews": "9,116"
+    },
+    {
+      "price": "690",
+      "rating": "220,271",
+      "reviews": "220,271"
+    },
+    {
+      "price": "431",
+      "rating": "36,062",
+      "reviews": "36,062"
+    },
+    {
+      "price": "499",
+      "rating": "82,059",
+      "reviews": "82,059"
+    }
+  ]
+}
