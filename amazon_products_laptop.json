@@ -1,40 +1,41 @@
 {
   "query": "laptop",
-  "search_url": "https://www.amazon.in/s?k=laptop&ref=nb_sb_noss",
+  "search_url": "https://www.amazon.in/s?k=laptop&crid=66CS7A2YHM56&sprefix=laptop%2Caps%2C848&ref=nb_sb_noss_2",
   "total_products": 8,
   "products": [
     {
       "price": "26,990",
-      "rating": "1,588",
-      "reviews": "1,588"
-    },
-    {
-      "price": "50,990",
-      "rating": "254"
-    },
-    {
-      "price": "1,15,000",
-      "rating": "503"
-    },
-    {
-      "price": "79,990",
-      "rating": "77"
-    },
-    {
-      "price": "30,990",
-      "rating": "1,588",
-      "reviews": "1,588"
+      "rating": "1,589",
+      "reviews": "1,589"
     },
     {
       "price": "35,490",
       "rating": "507"
     },
     {
-      "price": "67,990"
+      "price": "50,990",
+      "rating": "258"
     },
     {
-      "price": "46,990",
-      "rating": "208"
+      "price": "79,990",
+      "rating": "78"
+    },
+    {
+      "price": "19,990",
+      "rating": "549"
+    },
+    {
+      "price": "36,990",
+      "rating": "507"
+    },
+    {
+      "price": "22,216",
+      "rating": "102"
+    },
+    {
+      "price": "62,990",
+      "rating": "1,544",
+      "reviews": "1,544"
     }
   ]
 }

@@ -1,43 +1,46 @@
 {
   "query": "phones",
-  "search_url": "https://www.amazon.in/s?k=phones&ref=nb_sb_noss",
+  "search_url": "https://www.amazon.in/s?k=phones&crid=1D82ANXK2PV0P&sprefix=%2Caps%2C347&ref=nb_sb_noss",
   "total_products": 8,
   "products": [
     {
+      "price": "6,249",
+      "rating": "7,058",
+      "reviews": "7,058"
+    },
+    {
       "price": "23,999",
-      "rating": "2,682",
-      "reviews": "2,682"
-    },
-    {
-      "price": "10,999",
-      "rating": "2,152",
-      "reviews": "2,152"
-    },
-    {
-      "price": "6,799",
-      "rating": "601"
-    },
-    {
-      "price": "8,499",
-      "rating": "1,001",
-      "reviews": "1,001"
+      "rating": "2,692",
+      "reviews": "2,692"
     },
     {
       "price": "28,999",
-      "rating": "2,682",
-      "reviews": "2,682"
+      "rating": "2,692",
+      "reviews": "2,692"
     },
     {
-      "price": "11,990",
-      "rating": "786"
+      "price": "8,499",
+      "rating": "1,003",
+      "reviews": "1,003"
     },
     {
-      "price": "22,760",
-      "rating": "279"
+      "price": "10,999",
+      "rating": "2,167",
+      "reviews": "2,167"
     },
     {
-      "price": "21,948",
-      "rating": "153"
+      "price": "15,499",
+      "rating": "9,640",
+      "reviews": "9,640"
+    },
+    {
+      "price": "57,999",
+      "rating": "5,347",
+      "reviews": "5,347"
+    },
+    {
+      "price": "27,157",
+      "rating": "78"
     }
   ]
 }

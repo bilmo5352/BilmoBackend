@@ -5,40 +5,42 @@
   "products": [
     {
       "price": "749",
-      "rating": "1,730",
-      "reviews": "1,730"
+      "rating": "1,735",
+      "reviews": "1,735"
     },
     {
-      "price": "579",
-      "rating": "23,895",
-      "reviews": "23,895"
-    },
-    {
-      "price": "3,019",
-      "rating": "740"
+      "price": "1,099",
+      "rating": "8,038",
+      "reviews": "8,038"
     },
     {
       "price": "470",
-      "rating": "2,185",
-      "reviews": "2,185"
+      "rating": "2,187",
+      "reviews": "2,187"
     },
     {
       "price": "1,099",
-      "rating": "8,035",
-      "reviews": "8,035"
+      "rating": "5,011",
+      "reviews": "5,011"
     },
     {
-      "price": "649",
-      "rating": "342"
+      "price": "459",
+      "rating": "5,330",
+      "reviews": "5,330"
     },
     {
-      "price": "440",
-      "rating": "510"
+      "price": "644",
+      "rating": "343"
     },
     {
-      "price": "1,099",
-      "rating": "5,004",
-      "reviews": "5,004"
+      "price": "1,005",
+      "rating": "1,413",
+      "reviews": "1,413"
+    },
+    {
+      "price": "499",
+      "rating": "23,900",
+      "reviews": "23,900"
     }
   ]
 }

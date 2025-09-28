@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-commerce Scraper</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛒</text></svg>">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🛒 Smart E-commerce Search</h1>
+            <p>Intelligent search with MongoDB caching across Amazon, Flipkart, Meesho, and Myntra</p>
+            <div class="workflow-indicator">
+                <span class="workflow-step">🔍 Search</span>
+                <span class="workflow-arrow">→</span>
+                <span class="workflow-step">📦 Check Cache</span>
+                <span class="workflow-arrow">→</span>
+                <span class="workflow-step">🕷️ Web Scraping</span>
+                <span class="workflow-arrow">→</span>
+                <span class="workflow-step">💾 Save to MongoDB</span>
+            </div>
+        </header>
+
+        <section class="search-section">
+            <form id="searchForm" class="search-form">
+                <input
+                    type="text"
+                    id="searchInput"
+                    placeholder="Search for products (e.g., laptop, phones, shoes)..."
+                    class="search-input"
+                />
+                <button type="submit" class="search-button" id="searchButton">
+                    <span id="searchIcon">🔍</span>
+                    <span id="searchText">Search</span>
+                </button>
+                <button type="button" class="force-search-button" id="forceSearchButton" data-force-fresh="true">
+                    <span>🔄</span>
+                    <span>Fresh Search</span>
+                </button>
+            </form>
+
+            <div class="platform-buttons">
+                <button class="platform-button active" data-platform="all">All Platforms</button>
+                <button class="platform-button" data-platform="amazon">Amazon</button>
+                <button class="platform-button" data-platform="flipkart">Flipkart</button>
+                <button class="platform-button" data-platform="meesho">Meesho</button>
+                <button class="platform-button" data-platform="myntra">Myntra</button>
+            </div>
+
+            <div id="searchHistory" class="search-history" style="display: none;">
+                <h4>Recent Searches:</h4>
+                <div class="history-buttons"></div>
+            </div>
+        </section>
+
+        <div id="error" class="error" style="display: none;"></div>
+
+        <div id="loading" class="loading" style="display: none;">
+            <div class="loading-spinner"></div>
+            <p>Searching across all platforms...</p>
+            <p class="loading-subtitle">This may take 30-60 seconds</p>
+        </div>
+
+        <section id="results" class="results-section" style="display: none;">
+            <div class="results-header">
+                <div class="results-count" id="resultsCount"></div>
+                <div class="results-meta">
+                    <div id="resultsSource" class="results-source">Results stored in MongoDB</div>
+                    <div id="processingTime" class="processing-time"></div>
+                </div>
+            </div>
+            <div id="productsGrid" class="products-grid"></div>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

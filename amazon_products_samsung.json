@@ -1,0 +1,44 @@
+{
+  "query": "samsung",
+  "search_url": "https://www.amazon.in/s?k=samsung&ref=nb_sb_noss",
+  "total_products": 8,
+  "products": [
+    {
+      "price": "6,249",
+      "rating": "7,059",
+      "reviews": "7,059"
+    },
+    {
+      "price": "30,000",
+      "rating": "803"
+    },
+    {
+      "price": "8,999"
+    },
+    {
+      "price": "7,499",
+      "rating": "3,121",
+      "reviews": "3,121"
+    },
+    {
+      "price": "25,999",
+      "rating": "2,691",
+      "reviews": "2,691"
+    },
+    {
+      "price": "8,999",
+      "rating": "3,121",
+      "reviews": "3,121"
+    },
+    {
+      "price": "25,999",
+      "rating": "2,691",
+      "reviews": "2,691"
+    },
+    {
+      "price": "23,999",
+      "rating": "2,691",
+      "reviews": "2,691"
+    }
+  ]
+}

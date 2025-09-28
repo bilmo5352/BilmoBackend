@@ -61,23 +61,23 @@ def main():
     # Different connection strings to try
     connection_strings = [
         # Original format
-        (f"mongodb+srv://{username}:{encoded_password}@goat.kgtnygx.mongodb.net/?retryWrites=true&w=majority&appName=goat", 
+        (f"mongodb+srv://{username}:{encoded_password}@bilmo.jmeclfh.mongodb.net/?retryWrites=true&w=majority&appName=bilmo", 
          "Original format with appName"),
         
         # Without appName
-        (f"mongodb+srv://{username}:{encoded_password}@goat.kgtnygx.mongodb.net/?retryWrites=true&w=majority", 
+        (f"mongodb+srv://{username}:{encoded_password}@bilmo.jmeclfh.mongodb.net/?retryWrites=true&w=majority", 
          "Without appName"),
         
         # With database specified
-        (f"mongodb+srv://{username}:{encoded_password}@goat.kgtnygx.mongodb.net/scraper_db?retryWrites=true&w=majority", 
+        (f"mongodb+srv://{username}:{encoded_password}@bilmo.jmeclfh.mongodb.net/scraper_db?retryWrites=true&w=majority", 
          "With database specified"),
         
         # Minimal format
-        (f"mongodb+srv://{username}:{encoded_password}@goat.kgtnygx.mongodb.net/", 
+        (f"mongodb+srv://{username}:{encoded_password}@bilmo.jmeclfh.mongodb.net/", 
          "Minimal format"),
         
         # With different options
-        (f"mongodb+srv://{username}:{encoded_password}@goat.kgtnygx.mongodb.net/?retryWrites=true&w=majority&authSource=admin", 
+        (f"mongodb+srv://{username}:{encoded_password}@bilmo.jmeclfh.mongodb.net/?retryWrites=true&w=majority&authSource=admin", 
          "With authSource=admin"),
     ]
     
@@ -103,7 +103,7 @@ def main():
                 content = f.read()
             
             # Replace the URI
-            old_uri = 'MONGODB_URI = "mongodb+srv://hrithick:hrimee%400514@goat.kgtnygx.mongodb.net/?retryWrites=true&w=majority&appName=goat"'
+            old_uri = 'MONGODB_URI = "mongodb+srv://hrithick:hrithick@bilmo.jmeclfh.mongodb.net/?retryWrites=true&w=majority&appName=bilmo"'
             new_uri = f'MONGODB_URI = "{working_uri}"'
             
             content = content.replace(old_uri, new_uri)

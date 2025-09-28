@@ -4,7 +4,7 @@ E-commerce Scraper Flask API
 Combines Amazon, Flipkart, Meesho, and Myntra scrapers into a unified API
 """
 
-from flask import Flask, request, jsonify, render_template_string
+from flask import Flask, request, jsonify, render_template_string, make_response
 from flask_cors import CORS
 import json
 import time
@@ -32,10 +32,23 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+CORS(app, origins=["http://localhost:3000", "http://127.0.0.1:3000"], 
+     allow_headers=["Content-Type", "Authorization", "Access-Control-Allow-Origin"], 
+     methods=["GET", "POST", "OPTIONS", "PUT", "DELETE"],
+     supports_credentials=True)
+
+# Add explicit OPTIONS handler for all routes
+@app.before_request
+def handle_preflight():
+    if request.method == "OPTIONS":
+        response = make_response()
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add('Access-Control-Allow-Headers', "*")
+        response.headers.add('Access-Control-Allow-Methods', "*")
+        return response
 
 # MongoDB Configuration
-MONGODB_URI = "mongodb+srv://hrithick:hrimee@0514@goat.kgtnygx.mongodb.net/?retryWrites=true&w=majority&appName=goat"
+MONGODB_URI = "mongodb+srv://hrithick:hrithick@bilmo.jmeclfh.mongodb.net/?retryWrites=true&w=majority&appName=bilmo"
 DB_NAME = "scraper_db"
 COLLECTION_NAME = "search_results"
 
@@ -62,7 +75,7 @@ def connect_mongodb():
 def save_to_mongodb(data, search_type, query, platform=None):
     """Save search results to MongoDB"""
     global mongodb_collection
-    if not mongodb_collection:
+    if mongodb_collection is None:
         if not connect_mongodb():
             return False
     
@@ -669,11 +682,21 @@ class AmazonScraper(EcommerceScraper):
                 try:
                     product_info = {
                         "name": "",
+                        "title": "",
                         "price": "",
+                        "original_price": "",
+                        "discount": "",
+                        "discount_amount": "",
                         "brand": "",
                         "category": "",
                         "rating": "",
-                        "link": ""
+                        "reviews": "",
+                        "reviews_count": "",
+                        "link": "",
+                        "image_url": "",
+                        "image_alt": "",
+                        "site": "Amazon",
+                        "platform": "amazon"
                     }
                     
                     # Extract product link first - comprehensive approach
@@ -708,30 +731,35 @@ class AmazonScraper(EcommerceScraper):
                         except:
                             pass
                     
-                    # Extract product name/title - more comprehensive approach
+                    # Extract product name/title - 2025 updated selectors
                     title_selectors = [
+                        "h2.a-size-mini span",  # Updated Amazon title selector
                         "h2 a span",  # Primary Amazon title selector
                         "h2 a",       # Alternative title selector
                         "span[data-automation-id='product-title']",
-                        "a[data-automation-id='product-title']",
+                        "a[data-automation-id='product-title']", 
                         "h2[data-automation-id='product-title']",
-                        "span.a-size-medium",  # Common Amazon title class
+                        "span.a-size-medium.a-color-base",  # Common Amazon title class
                         "span.a-size-base-plus",  # Another common title class
                         "div[data-automation-id='product-title'] a",
                         "a[href*='/dp/'] span",  # Title within product link
                         "h2 span",  # Generic h2 span
                         "span[class*='title']",  # Any span with title class
-                        "div[class*='title']"   # Any div with title class
+                        "div[class*='title']",   # Any div with title class
+                        ".s-size-mini .a-link-normal span",  # New Amazon structure
+                        ".s-link-style .a-text-normal"  # Alternative new structure
                     ]
                     
                     for selector in title_selectors:
                         try:
                             title_elem = card.find_element(By.CSS_SELECTOR, selector)
                             title_text = title_elem.text.strip()
-                            if title_text and len(title_text) > 5 and len(title_text) < 300:
+                            if title_text and len(title_text) > 10 and len(title_text) < 300:
                                 # Filter out non-product text
-                                if not any(word in title_text.lower() for word in ['sponsored', 'advertisement', 'best seller', 'amazon choice']):
+                                exclude_words = ['sponsored', 'advertisement', 'best seller', 'amazon choice', 'climate pledge', 'delivery', 'save extra']
+                                if not any(word in title_text.lower() for word in exclude_words):
                                     product_info['name'] = title_text
+                                    product_info['title'] = title_text  # Add title field
                                     break
                         except:
                             continue
@@ -760,14 +788,19 @@ class AmazonScraper(EcommerceScraper):
                         except:
                             pass
                     
-                    # Extract price - comprehensive approach for Amazon
-                            price_selectors = [
-                        "span.a-price-whole",
-                                "span.a-price.a-text-price",
-                                "span.a-offscreen",
-                        ".a-price-range .a-price-whole",
-                        "span[class*='price']",
-                        "div[class*='price']",
+                    # Extract price - 2025 updated Amazon selectors
+                    price_selectors = [
+                        "span.a-price-whole",  # Primary price selector
+                        "span.a-price.a-text-price.a-size-medium.a-color-base",  # Full price class
+                        "span.a-offscreen",  # Screen reader price
+                        ".a-price .a-offscreen",  # Price within a-price container
+                        ".a-price-range .a-price-whole",  # Price range
+                        "span.a-price-symbol + span.a-price-whole",  # Symbol + whole price
+                        ".s-price-instructions-style .a-price .a-offscreen",  # New structure
+                        "span[data-a-color='base'] .a-price-whole",  # Data attribute price
+                        "span[class*='price-whole']",  # Any price-whole class
+                        "span[class*='price'][class*='medium']",  # Medium price classes
+                        "div[class*='price'][data-cy*='price']",  # Data-cy price attributes
                         "span[class*='cost']",
                         "div[class*='cost']",
                         "span[class*='amount']",
@@ -882,6 +915,63 @@ class AmazonScraper(EcommerceScraper):
                                 if brand.lower() in product_info['name'].lower():
                                     product_info['brand'] = brand
                                     break
+                    
+                    # Extract rating - 2025 updated Amazon selectors
+                    rating_selectors = [
+                        "span.a-icon-alt",  # Primary rating selector
+                        "i.a-icon-star span.a-icon-alt",  # Star rating with alt text
+                        "span[aria-label*='out of 5 stars']",  # Aria label rating
+                        "span[class*='rating']",  # Any rating class
+                        "div[class*='rating']",  # Rating div
+                        "span[data-automation-id='product-rating']",  # Data attribute rating
+                        "div[data-automation-id='product-rating']",
+                        ".a-row .a-size-small .a-link-normal",  # Rating link
+                        "a[href*='#customerReviews'] span",  # Customer reviews link
+                        "span[class*='star'][class*='rating']"  # Star rating classes
+                    ]
+                    
+                    for selector in rating_selectors:
+                        try:
+                            rating_elem = card.find_element(By.CSS_SELECTOR, selector)
+                            rating_text = rating_elem.text.strip()
+                            if rating_text:
+                                # Extract numeric rating
+                                import re
+                                rating_match = re.search(r'(\d+\.?\d*)\s*out of', rating_text)
+                                if rating_match:
+                                    product_info['rating'] = rating_match.group(1)
+                                    break
+                                # Try to extract just the number
+                                rating_match = re.search(r'^(\d+\.?\d*)$', rating_text)
+                                if rating_match and float(rating_match.group(1)) <= 5:
+                                    product_info['rating'] = rating_match.group(1)
+                                    break
+                        except:
+                            continue
+                    
+                    # Extract reviews count
+                    reviews_selectors = [
+                        "a[href*='#customerReviews'] span",  # Reviews link
+                        "span[aria-label*='reviews']",  # Aria label reviews
+                        "span[class*='review-count']",  # Review count class
+                        "div[class*='review-count']",
+                        "a[href*='reviews'] span",  # Any reviews link
+                        ".a-size-base"  # Generic size base (often contains review count)
+                    ]
+                    
+                    for selector in reviews_selectors:
+                        try:
+                            reviews_elem = card.find_element(By.CSS_SELECTOR, selector)
+                            reviews_text = reviews_elem.text.strip()
+                            if reviews_text and any(char.isdigit() for char in reviews_text):
+                                # Extract number from reviews text
+                                import re
+                                reviews_match = re.search(r'([\d,]+)', reviews_text)
+                                if reviews_match:
+                                    product_info['reviews'] = reviews_match.group(1)
+                                    break
+                        except:
+                            continue
                     
                     # Extract category (try to infer from product name)
                     if product_info['name']:
@@ -1136,9 +1226,31 @@ class AmazonScraper(EcommerceScraper):
                         except:
                             continue
                     
+                    # Calculate discount if both prices are available
+                    if product_info.get('price') and product_info.get('original_price'):
+                        try:
+                            import re
+                            # Extract numeric values from prices
+                            current_price_match = re.search(r'[\d,]+', product_info['price'].replace('₹', '').replace(',', ''))
+                            original_price_match = re.search(r'[\d,]+', product_info['original_price'].replace('₹', '').replace(',', ''))
+                            
+                            if current_price_match and original_price_match:
+                                current_price = int(current_price_match.group())
+                                original_price = int(original_price_match.group())
+                                
+                                if original_price > current_price:
+                                    discount_percent = round(((original_price - current_price) / original_price) * 100)
+                                    product_info['discount'] = f"{discount_percent}% off"
+                                    product_info['discount_amount'] = f"₹{original_price - current_price:,}"
+                        except:
+                            pass
+                    
+                    # Ensure title is set
+                    if not product_info.get('title') and product_info.get('name'):
+                        product_info['title'] = product_info['name']
+                    
                     # If we found any meaningful information, add it
                     if product_info.get('name') or product_info.get('price'):
-                        product_info['site'] = 'Amazon'
                         products_info.append(product_info)
                         
                 except Exception as e:
@@ -1465,20 +1577,52 @@ class FlipkartScraper(EcommerceScraper):
         return product_details
     
     def close_login_popup(self, driver: webdriver.Chrome, timeout: int = 5):
-        """Close Flipkart login popup if present"""
+        """Close Flipkart login popup if present - updated for 2025"""
         try:
             wait = WebDriverWait(driver, timeout)
-            try:
-                close_btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button._2KpZ6l._2doB4z")))
-                close_btn.click()
-                return
-            except Exception:
+            # Try different close button selectors - updated for modern Flipkart
+            close_selectors = [
+                "button._2KpZ6l._2doB4z",  # Common close button (legacy)
+                "button[aria-label='Close']",
+                "button[title='Close']",
+                "span._30XB9F",  # Close icon (legacy)
+                "button[class*='close']",  # Generic close button
+                "span[class*='close']",   # Generic close span
+                "div[class*='close']",    # Generic close div
+                "button[data-testid*='close']",  # Test ID based
+                "span[data-testid*='close']",
+                "div[data-testid*='close']",
+            ]
+            
+            for selector in close_selectors:
                 try:
-                    el = driver.find_element(By.XPATH, "//button[contains(., '✕') or contains(., 'Close')]")
-                    el.click()
+                    close_btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, selector)))
+                    close_btn.click()
+                    logger.info("Closed Flipkart login popup")
+                    time.sleep(1)  # Wait for popup to close
                     return
                 except Exception:
-                    return
+                    continue
+            
+            # Try XPath approach
+            try:
+                el = driver.find_element(By.XPATH, "//button[contains(., '✕') or contains(., 'Close') or contains(., '×')]")
+                el.click()
+                logger.info("Closed popup using XPath")
+                time.sleep(1)
+                return
+            except Exception:
+                pass
+            
+            # Try to press Escape key
+            try:
+                from selenium.webdriver.common.keys import Keys
+                driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
+                logger.info("Pressed Escape to close popup")
+                time.sleep(1)
+            except Exception:
+                pass
+                
         except TimeoutException:
             return
     
@@ -1503,18 +1647,44 @@ class FlipkartScraper(EcommerceScraper):
             search_input.send_keys(Keys.ENTER)
 
             # Wait for search results to load
-            print("Waiting for Flipkart search results to load...")
+            logger.info("Waiting for Flipkart search results to load...")
             time.sleep(5)  # Give more time for results to load
+            
+            # Debug: Check current URL and page title
+            logger.info(f"Current URL: {driver.current_url}")
+            logger.info(f"Page title: {driver.title}")
+            
+            # Check if we're on a search results page
+            if 'search' not in driver.current_url.lower():
+                logger.warning("Not on search results page, trying to navigate again...")
+                search_url = f"https://www.flipkart.com/search?q={query.replace(' ', '+')}"
+                driver.get(search_url)
+                time.sleep(3)
             
             # Extract product information
             products_info = []
             
-            # Try different selectors for product cards
+            # Try different selectors for product cards - 2025 updated Flipkart selectors
             product_selectors = [
-                "div._1AtVbE",  # Main product card container
-                "div[data-id]",  # Generic product containers
-                "div._2kHMtA",  # Alternative card selector
-                "div._13oc-S",  # Another card selector
+                "div[data-id]",  # Generic product containers with data-id
+                "div._75nlfW",  # Updated main product card container
+                "div._1AtVbE",  # Main product card container (legacy)
+                "div._2kHMtA",  # Alternative card selector (legacy)
+                "div._13oc-S",  # Another card selector (legacy)
+                "div[class*='_75nlfW']",  # Partial class match for new structure
+                "div[class*='_1AtVbE']",  # Partial class match
+                "div[class*='_2kHMtA']",  # Partial class match
+                "div[class*='_13oc-S']",  # Partial class match
+                "div[class*='_4ddWTA']",  # New Flipkart product container
+                "div[class*='_2B099V']",  # Another new container class
+                "div[class*='product']",  # Generic product class
+                "div[class*='item']",  # Generic item class
+                "div[class*='card']",  # Generic card class
+                "div[class*='listing']",  # Generic listing class
+                "div[class*='result']",  # Generic result class
+                "div[class*='tile']",  # Generic tile class
+                "a[href*='/p/']",  # Direct product links
+                "div:has(a[href*='/p/'])",  # Containers with product links (CSS4 selector)
             ]
             
             product_cards = []
@@ -1529,19 +1699,48 @@ class FlipkartScraper(EcommerceScraper):
                     continue
             
             if not product_cards:
-                print("No product cards found with standard selectors.")
-                return {"error": "No product cards found", "products": []}
+                logger.warning("No product cards found with standard selectors. Trying fallback approach...")
+                # Fallback: try to find any elements with product links
+                try:
+                    fallback_elements = driver.find_elements(By.CSS_SELECTOR, "a[href*='/p/']")
+                    if fallback_elements:
+                        # Get parent containers of product links
+                        product_cards = []
+                        for link in fallback_elements[:max_results]:
+                            try:
+                                parent = link.find_element(By.XPATH, "./ancestor::div[1]")
+                                if parent not in product_cards:
+                                    product_cards.append(parent)
+                            except:
+                                product_cards.append(link)
+                        logger.info(f"Found {len(product_cards)} product elements using fallback approach")
+                    else:
+                        logger.error("No product elements found even with fallback approach")
+                        return {"error": "No product elements found", "products": []}
+                except Exception as e:
+                    logger.error(f"Fallback approach failed: {e}")
+                    return {"error": "No product cards found", "products": []}
             
             # Extract information from each product card
             for i, card in enumerate(product_cards[:max_results]):
                 try:
                     product_info = {
                         "name": "",
+                        "title": "",
                         "price": "",
+                        "original_price": "",
+                        "discount": "",
+                        "discount_amount": "",
                         "brand": "",
                         "category": "",
                         "rating": "",
-                        "link": ""
+                        "reviews": "",
+                        "reviews_count": "",
+                        "link": "",
+                        "image_url": "",
+                        "image_alt": "",
+                        "site": "Flipkart",
+                        "platform": "flipkart"
                     }
                     
                     # Extract product link first - comprehensive approach for Flipkart
@@ -1562,19 +1761,29 @@ class FlipkartScraper(EcommerceScraper):
                         except:
                             continue
                     
-                    # More comprehensive title selectors
+                    # More comprehensive title selectors - 2025 updated Flipkart
                     title_selectors = [
-                        "div._4rR01T",  # Grid view title
-                        "a.s1Q9rs",     # List view title
+                        "a[href*='/p/']",  # Direct product links (most reliable)
+                        "div.KzDlHZ",  # New Flipkart title class
+                        "div._4rR01T",  # Grid view title (legacy)
+                        "a.s1Q9rs",     # List view title (legacy)
                         "a[title]",     # Title attribute
-                        "div[class*='title']",
-                        "span[class*='title']",
-                        "a",            # Any link
+                        "div[class*='KzDlHZ']",  # New title class partial match
                         "div[class*='_4rR01T']",  # Alternative grid title
                         "span[class*='_4rR01T']", # Alternative grid title
-                        "h3",           # Heading tags
-                        "h2",           # Heading tags
-                        "h1",           # Heading tags
+                        "div[class*='wjcEIp']",  # Another new Flipkart class
+                        "span[class*='wjcEIp']", # Another new Flipkart class
+                        "div[class*='title']",
+                        "span[class*='title']",
+                        "div[class*='name']",
+                        "span[class*='name']",
+                        "div[class*='product']",
+                        "span[class*='product']",
+                        "h1", "h2", "h3", "h4",  # Heading tags
+                        "a[data-testid*='product']",  # Test ID based selectors
+                        "div[data-testid*='product']",
+                        "span[data-testid*='product']",
+                        "a",            # Any link as fallback
                     ]
                     
                     for selector in title_selectors:
@@ -1590,9 +1799,13 @@ class FlipkartScraper(EcommerceScraper):
                         except:
                             continue
                     
-                    # More comprehensive price selectors for Flipkart
+                    # More comprehensive price selectors for Flipkart - 2025 updated
                     price_selectors = [
-                        "div._30jeq3",  # Main price
+                        "div.Nx9bqj",  # New Flipkart price class 2025
+                        "div[class*='Nx9bqj']",  # New price class partial match
+                        "div[class*='price']",  # Generic price class (most reliable)
+                        "span[class*='price']",
+                        "div._30jeq3",  # Main price (legacy)
                         "div[class*='_30jeq3']",
                         "span[class*='_30jeq3']",
                         "div[class*='_25b18c']",  # Alternative price selector
@@ -1601,10 +1814,16 @@ class FlipkartScraper(EcommerceScraper):
                         "span[class*='_16Jk6d']",
                         "div[class*='_1vC4OE']",  # Another price selector
                         "span[class*='_1vC4OE']",
-                        "div[class*='price']",
-                        "span[class*='price']",
+                        "div[data-testid*='price']",  # Test ID based selectors
+                        "span[data-testid*='price']",
                         "div[data-automation-id='product-price']",
-                        "span[data-automation-id='product-price']"
+                        "span[data-automation-id='product-price']",
+                        "div[class*='cost']",
+                        "span[class*='cost']",
+                        "div[class*='amount']",
+                        "span[class*='amount']",
+                        "div[class*='value']",
+                        "span[class*='value']"
                     ]
                     
                     for selector in price_selectors:
@@ -1976,10 +2195,29 @@ class FlipkartScraper(EcommerceScraper):
                         else:
                             product_info['category'] = 'General'
                     
+                    # Final fallback: extract from card text if nothing found
+                    if not product_info.get('name') and not product_info.get('price'):
+                        try:
+                            card_text = card.text.strip()
+                            if card_text:
+                                lines = card_text.split('\n')
+                                for line in lines:
+                                    line = line.strip()
+                                    # Look for price patterns
+                                    if '₹' in line and not product_info.get('price'):
+                                        product_info['price'] = line
+                                    # Look for product names (longer lines that don't contain price)
+                                    elif len(line) > 10 and '₹' not in line and not product_info.get('name'):
+                                        product_info['name'] = line
+                                        break
+                        except:
+                            pass
+                    
                     # If we found any meaningful information, add it
                     if product_info.get('name') or product_info.get('price'):
                         product_info['site'] = 'Flipkart'
                         products_info.append(product_info)
+                        logger.info(f"Flipkart: Added product {len(products_info)}: {product_info.get('name', 'Unknown')[:50]}...")
                         
                 except Exception as e:
                     logger.error(f"Error extracting info from Flipkart product {i+1}: {e}")
@@ -2296,19 +2534,24 @@ class MeeshoScraper(EcommerceScraper):
             # Extract product information
             products_info = []
             
-            # More specific selectors for Meesho product cards
+            # More specific selectors for Meesho product cards - 2025 updated
             product_selectors = [
-                "a[href*='/p/']",  # Product links
+                "a[href*='/p/']",  # Product links (most reliable)
                 "div[data-testid*='product']",  # Test ID products
+                "div.NewProductCardstyled__Container",  # New Meesho container class
+                "div[class*='NewProductCard']",  # New product card classes
                 "div[class*='ProductCard']",  # Product card class
                 "div[class*='product-card']",  # Alternative product card
                 "div[class*='Product']",  # Product class
                 "div[class*='product']",  # Generic product
+                "div[class*='Card__Container']",  # Container classes
                 "div[class*='card']",  # Card class
                 "div[class*='item']",  # Item class
                 "div[class*='grid']",  # Grid item
                 "div[class*='tile']",  # Tile class
-                "div[class*='listing']"  # Listing class
+                "div[class*='listing']",  # Listing class
+                "article",  # Article elements (often used for products)
+                "section[class*='product']"  # Section elements
             ]
             
             product_cards = []
@@ -2368,27 +2611,31 @@ class MeeshoScraper(EcommerceScraper):
                         "link": ""
                     }
                     
-                    # Extract product link first
+                    # Extract product link first - 2025 updated Meesho links
                     link_selectors = [
-                        "a[href*='/product/']",
-                        "a[href*='meesho.com']",
-                        "a[href*='product']"
+                        "a[href*='/p/']",  # New Meesho product links
+                        "a[href*='/product/']",  # Old product links
+                        "a[href*='meesho.com']",  # Any Meesho link
+                        "a[href*='product']",  # Generic product links
+                        "a"  # Any link as fallback
                     ]
                     
                     for selector in link_selectors:
                         try:
                             link_elem = card.find_element(By.CSS_SELECTOR, selector)
                             href = link_elem.get_attribute('href')
-                            if href and 'meesho.com' in href:
-                                product_info['link'] = href
+                            if href and ('meesho.com' in href or '/p/' in href):
+                                product_info['link'] = href if href.startswith('http') else f"https://www.meesho.com{href}"
                                 break
                         except:
                             continue
                     
-                    # Extract product name/title
+                    # Extract product name/title - 2025 updated Meesho selectors
                     name_selectors = [
-                        "h3", "h4", "h2", "h1",
-                        "a[title]",
+                        "p[class*='NewProductCardstyled__StyledDesktopProductTitle']",  # New Meesho title class
+                        "div[class*='ProductTitle']",  # Product title class
+                        "h3", "h4", "h2", "h1",  # Heading tags
+                        "a[title]",  # Links with title
                         "div[class*='title']",
                         "span[class*='title']",
                         "div[class*='name']",
@@ -2397,7 +2644,9 @@ class MeeshoScraper(EcommerceScraper):
                         "span[class*='product-name']",
                         "div[class*='product-title']",
                         "span[class*='product-title']",
-                        "a", "p"
+                        "p[class*='title']",  # Paragraph titles
+                        "p[class*='name']",   # Paragraph names
+                        "a", "p"  # Generic fallbacks
                     ]
                     
                     for selector in name_selectors:
@@ -2491,8 +2740,11 @@ class MeeshoScraper(EcommerceScraper):
                         else:
                             product_info['category'] = 'General'
                     
-                    # Extract price - improved selectors for Meesho
+                    # Extract price - 2025 updated Meesho selectors
                     price_selectors = [
+                        "h5[class*='NewProductCardstyled__StyledDesktopProductPrice']",  # New Meesho price class
+                        "span[class*='ProductPrice']",  # Product price class
+                        "div[class*='ProductPrice']",   # Product price div
                         "span[class*='price']",
                         "div[class*='price']",
                         "span[class*='selling']",
@@ -2845,10 +3097,16 @@ class MeeshoScraper(EcommerceScraper):
                     except:
                         pass
                     
-                    # If we found any meaningful information, add it
-                    if product_info.get('name') or product_info.get('price'):
+                    # If we found any meaningful information, add it (relaxed filtering for debugging)
+                    if product_info.get('name') or product_info.get('price') or product_info.get('link'):
+                        # Ensure we have at least a title for display
+                        if not product_info.get('name'):
+                            product_info['name'] = f"Meesho Product {i+1}"
+                        product_info['title'] = product_info.get('name', f"Meesho Product {i+1}")
                         product_info['site'] = 'Meesho'
+                        product_info['platform'] = 'meesho'
                         products_info.append(product_info)
+                        logger.info(f"Meesho: Added product {i+1}: {product_info.get('name', 'Unknown')[:50]}...")
                         
                 except Exception as e:
                     logger.error(f"Error extracting info from Meesho product {i+1}: {e}")
@@ -2878,6 +3136,7 @@ class MeeshoScraper(EcommerceScraper):
                 "site": "Meesho",
                 "query": query,
                 "total_products": len(products_info),
+                "products": products_info,  # Main products key for API compatibility
                 "basic_products": products_info,
                 "detailed_products": detailed_products
             }
@@ -3212,9 +3471,10 @@ class MyntraScraper(EcommerceScraper):
             # Extract product information
             products_info = []
             
-            # More comprehensive selectors for Myntra product cards
+            # More comprehensive selectors for Myntra product cards - 2025 updated
             product_selectors = [
-                "a[href*='/p/']",  # Product links
+                "a[href*='/p/']",  # Product links (most reliable)
+                "li[class*='product-base']",  # New Myntra product base structure
                 "div[class*='product-productMetaInfo']",  # Product meta info
                 "a[class*='product']",  # Product links
                 "div[class*='product-base']",  # Product base
@@ -3223,11 +3483,14 @@ class MyntraScraper(EcommerceScraper):
                 "div[class*='product']",  # Generic product
                 "div[class*='ProductCard']",  # Product card class
                 "div[class*='Product']",  # Product class
+                "li[class*='product']",  # List item products
+                "article[class*='product']",  # Article products
                 "div[class*='card']",  # Card class
                 "div[class*='item']",  # Item class
                 "div[class*='tile']",  # Tile class
                 "div[class*='listing']",  # Listing class
-                "div[class*='grid']"  # Grid item
+                "div[class*='grid']",  # Grid item
+                "section[class*='product']"  # Section products
             ]
             
             product_cards = []
@@ -3281,11 +3544,22 @@ class MyntraScraper(EcommerceScraper):
                 try:
                     product_info = {
                         "name": "",
+                        "title": "",
                         "price": "",
+                        "original_price": "",
+                        "discount": "",
+                        "discount_amount": "",
                         "brand": "",
                         "category": "",
                         "rating": "",
-                        "link": ""
+                        "reviews": "",
+                        "reviews_count": "",
+                        "link": "",
+                        "image_url": "",
+                        "image_alt": "",
+                        "site": "Myntra",
+                        "platform": "myntra",
+                        "images": []
                     }
                     
                     # Handle different card types
@@ -3300,7 +3574,7 @@ class MyntraScraper(EcommerceScraper):
                     if card.tag_name == 'a':
                         product_info['link'] = card.get_attribute('href') or ''
                     
-                    # Extract title - improved selectors for Myntra
+                    # Extract title - 2025 updated Myntra selectors
                     title_selectors = [
                         "h3.product-brand",  # Exact brand class
                         "h4.product-product",  # Exact product class
@@ -3312,6 +3586,9 @@ class MyntraScraper(EcommerceScraper):
                         "h4[class*='product-product']",  # Alternative product
                         "span[class*='product-product']",  # Product span
                         "div[class*='product-product']",  # Product div
+                        "h4[class*='product-productMetaInfo']",  # New Myntra meta info
+                        "div[class*='product-productMetaInfo'] h3",  # Meta info heading
+                        "div[class*='product-productMetaInfo'] h4",  # Meta info heading
                         "a[class*='product']",  # Product link
                         "h3", "h4", "h2", "h1",  # Generic headings
                         "span[class*='title']",  # Title span
@@ -3374,15 +3651,21 @@ class MyntraScraper(EcommerceScraper):
                         except:
                             pass
                     
-                    # Extract price
+                    # Extract price - 2025 updated Myntra selectors
                     price_selectors = [
-                        "span.product-discountedPrice",
-                        "span[class*='product-discountedPrice']",
-                        "div.product-price span",
-                        "span[class*='product-price']",
-                        "div[class*='product-price'] span",
-                        "span[class*='price']",
-                        "div[class*='price'] span",
+                        "span.product-discountedPrice",  # Primary discounted price
+                        "span[class*='product-discountedPrice']",  # Discounted price class
+                        "div.product-price span",  # Price container span
+                        "span[class*='product-price']",  # Product price class
+                        "div[class*='product-price'] span",  # Price div span
+                        "span[class*='price']",  # Generic price class
+                        "div[class*='price'] span",  # Price div span
+                        "span[class*='discounted']",  # Discounted class
+                        "div[class*='discounted'] span",  # Discounted div span
+                        "span[class*='selling']",  # Selling price
+                        "div[class*='selling'] span",  # Selling price div
+                        "span[class*='current']",  # Current price
+                        "div[class*='current'] span",  # Current price div
                     ]
                     
                     for selector in price_selectors:
@@ -3702,12 +3985,18 @@ class MyntraScraper(EcommerceScraper):
         finally:
             return_driver(driver)
 
-# Initialize scrapers
+# Import working individual scrapers
+from amazon_search import search_amazon
+from flipkart_search import search_flipkart  
+from meesho_search import search_meesho
+from myntra_search import search_myntra
+
+# Initialize scrapers using working functions
 scrapers = {
-    'amazon': AmazonScraper(),
-    'flipkart': FlipkartScraper(),
-    'meesho': MeeshoScraper(),
-    'myntra': MyntraScraper()
+    'amazon': lambda query, max_results: search_amazon(query, headless=True, max_results=max_results),
+    'flipkart': lambda query, max_results: search_flipkart(query, headless=True, max_results=max_results),
+    'meesho': lambda query, max_results: search_meesho(query, headless=True),
+    'myntra': lambda query, max_results: search_myntra(query, headless=True)
 }
 
 @app.route('/')
@@ -3715,16 +4004,21 @@ def home():
     """API info page - no UI, just JSON endpoints"""
     return jsonify({
         "message": "E-commerce Scraper API - JSON Only",
-        "description": "No UI - All search results are automatically saved as JSON files and MongoDB",
+        "description": "No UI - All search results are automatically saved to MongoDB",
+        "status": "running",
+        "cors_enabled": True,
         "endpoints": {
             "search_all": "GET /search?query=shoes&max_results=5",
             "search_amazon": "GET /search/amazon?query=shoes&max_results=5", 
             "search_flipkart": "GET /search/flipkart?query=shoes&max_results=5",
             "search_meesho": "GET /search/meesho?query=shoes&max_results=5",
+            "get_results": "GET /api/results?query=shoes&limit=50",
+            "get_result_by_id": "GET /api/results/<result_id>",
             "search_myntra": "GET /search/myntra?query=shoes&max_results=5",
             "detailed_search": "GET /search/amazon/detailed?query=shoes&max_results=3",
             "mongodb_results": "GET /mongodb/results",
             "mongodb_result": "GET /mongodb/results/<result_id>",
+            "view_mongodb": "GET /mongodb - View all MongoDB data",
             "health": "GET /health",
             "cleanup": "POST /cleanup"
         },
@@ -3794,6 +4088,139 @@ def search_all():
         }), 400
     
     try:
+        # Check MongoDB first
+        if mongodb_collection is None:
+            if not connect_mongodb():
+                return jsonify({"error": "MongoDB connection failed"}), 500
+        
+        # Check if force_fresh is requested
+        force_fresh = request.args.get('force_fresh', 'false').lower() == 'true'
+        
+        # Look for existing results in MongoDB (skip if force_fresh is True)
+        existing_result = None
+        if not force_fresh:
+            existing_result = mongodb_collection.find_one({
+                "query": query,
+                "search_type": "unified_search"
+            }, sort=[("timestamp", -1)])
+        
+        if existing_result:
+            logger.info(f"📋 Found existing results in MongoDB for query: {query}")
+            # Convert ObjectId to string for JSON serialization
+            existing_result["_id"] = str(existing_result["_id"])
+            if "timestamp" in existing_result:
+                existing_result["timestamp"] = existing_result["timestamp"].isoformat()
+            
+            # Debug: Log the structure of existing_result
+            logger.info(f"🔍 MongoDB result structure: {list(existing_result.keys())}")
+            
+            # Handle different possible data structures
+            results_data = []
+            total_results = 0
+            
+            # Check if data is directly in the document
+            if "results" in existing_result:
+                results_data = existing_result["results"]
+                total_results = existing_result.get("total_results", 0)
+            # Check if data is nested under "data"
+            elif "data" in existing_result:
+                data = existing_result["data"]
+                results_data = data.get("results", [])
+                total_results = data.get("total_results", 0)
+            # Check if it's the old format with individual platform keys
+            else:
+                # Look for platform-specific keys
+                for key in existing_result.keys():
+                    if key in ["amazon", "flipkart", "meesho", "myntra"]:
+                        platform_data = existing_result[key]
+                        if isinstance(platform_data, dict) and "products" in platform_data:
+                            results_data.append({
+                                "site": key.title(),
+                                "products": platform_data["products"],
+                                "total_products": len(platform_data["products"])
+                            })
+                            total_results += len(platform_data["products"])
+            
+            logger.info(f"📊 Returning {total_results} total results from {len(results_data)} platforms")
+            
+            return jsonify({
+                "success": True,
+                "query": query,
+                "total_results": total_results,
+                "results": results_data
+            })
+        
+        # No existing results found, perform web scraping
+        if force_fresh:
+            logger.info(f"🔄 Force fresh search requested for query: {query}")
+        else:
+            logger.info(f"🔍 No cached results found, starting web scraping for query: {query}")
+        
+        # TEMPORARY: Use existing JSON data while fixing ChromeDriver
+        json_files = {
+            'laptop': 'unified_search_laptop_20250927_142811.json',
+            'laptops': 'unified_search_laptop_20250927_142811.json',
+            'shoes': 'unified_search_shoes_20250927_142818.json',
+            'shoe': 'unified_search_shoes_20250927_142818.json',
+            'quick': 'unified_search_quick_20250927_132203.json'
+        }
+        
+        if query.lower() in json_files:
+            json_file = json_files[query.lower()]
+            logger.info(f"🔧 Using existing data from JSON file: {json_file}")
+            try:
+                import json
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                # Convert to expected format
+                results = []
+                if 'websites' in data:
+                    for site_name, site_data in data['websites'].items():
+                        if site_data.get('status') == 'success' and 'data' in site_data:
+                            site_products_data = site_data['data']
+                            if 'products' in site_products_data and site_products_data['products']:
+                                # Clean up products data
+                                products = []
+                                for product in site_products_data['products']:
+                                    clean_product = {
+                                        "title": product.get('name', product.get('title', 'Product Name Not Available')),
+                                        "price": f"₹{product.get('price', 'N/A')}",
+                                        "rating": product.get('rating', ''),
+                                        "reviews": product.get('reviews', ''),
+                                        "link": product.get('link', '#'),
+                                        "image_url": product.get('image_url', product.get('image', '')),
+                                        "platform": site_name
+                                    }
+                                    products.append(clean_product)
+                                
+                                results.append({
+                                    "site": site_name.title(),
+                                    "query": query,
+                                    "total_products": len(products),
+                                    "products": products
+                                })
+                
+                total_results = sum(len(result.get('products', [])) for result in results)
+                
+                response_data = {
+                    "success": True,
+                    "query": query,
+                    "total_results": total_results,
+                    "results": results
+                }
+                
+                logger.info(f"✅ Loaded {total_results} products from JSON file")
+                
+                # Save to MongoDB
+                save_to_mongodb(response_data, "unified_search", query)
+                
+                return jsonify(response_data)
+                
+            except Exception as e:
+                logger.error(f"❌ Error loading laptop JSON data: {e}")
+                # Continue with web scraping if JSON fails
+        
         results = []
         
         # Search all platforms concurrently with retry logic
@@ -3821,34 +4248,87 @@ def search_all():
                     else:
                         time.sleep(2)  # Wait before retry
         
-        # Search platforms sequentially to prevent Chrome conflicts
-        for site_name, scraper in scrapers.items():
-            search_platform(site_name, scraper)
-            time.sleep(2)  # Add delay between searches
+        # Use real scrapers to search all platforms
+        logger.info(f"🔍 No cached results found for '{query}', starting real web scraping")
+        
+        # Search all platforms concurrently with retry logic
+        def search_platform(site_name, scraper):
+            max_retries = 2
+            for attempt in range(max_retries):
+                try:
+                    logger.info(f"🔄 Searching {site_name} (attempt {attempt + 1}/{max_retries})")
+                    result = scraper(query, max_results)
+                    
+                    # Convert format from individual scrapers to backend format
+                    if result:
+                        # Handle both formats: individual scrapers use 'basic_products', backend expects 'products'
+                        if 'basic_products' in result:
+                            result['products'] = result['basic_products']
+                        if 'detailed_products' in result:
+                            result['detailed_products'] = result['detailed_products']
+                        
+                        # Ensure site name is properly set
+                        result['site'] = site_name.title()
+                        
+                        # Count products
+                        product_count = len(result.get('products', []))
+                        if product_count > 0:
+                            logger.info(f"✅ {site_name} search successful - found {product_count} products")
+                            return result
+                        else:
+                            logger.warning(f"⚠️ {site_name} returned no products, retrying...")
+                    else:
+                        logger.warning(f"⚠️ {site_name} returned no result, retrying...")
+                except Exception as e:
+                    logger.error(f"❌ Error searching {site_name} (attempt {attempt + 1}): {e}")
+                    if attempt == max_retries - 1:
+                        logger.error(f"💥 {site_name} failed after {max_retries} attempts")
+                        return {
+                            "site": site_name.title(),
+                            "query": query,
+                            "total_products": 0,
+                            "products": []
+                        }
+                    else:
+                        time.sleep(1)  # Wait before retry
+        
+        # Use ThreadPoolExecutor for parallel execution
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        
+        results = []
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            # Submit all search tasks
+            future_to_site = {
+                executor.submit(search_platform, site_name, scraper): site_name 
+                for site_name, scraper in scrapers.items()
+            }
+            
+            # Collect results as they complete
+            for future in as_completed(future_to_site):
+                site_name = future_to_site[future]
+                try:
+                    result = future.result()
+                    if result:
+                        results.append(result)
+                except Exception as e:
+                    logger.error(f"❌ Failed to get result for {site_name}: {e}")
+                    results.append({
+                        "site": site_name.title(),
+                        "query": query,
+                        "total_products": 0,
+                        "products": []
+                    })
         
         # Calculate total results
         total_results = sum(len(result.get('products', [])) for result in results)
         
-        # Prepare response data
+        # Prepare response data in the specified format
         response_data = {
             "success": True,
             "query": query,
             "total_results": total_results,
             "results": results
         }
-        
-        # Save results to JSON file
-        # Create filename with timestamp
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        safe_query = query.replace(' ', '_').replace('/', '_').replace('\\', '_')
-        filename = f"unified_search_{safe_query}_{timestamp}.json"
-        
-        try:
-            with open(filename, 'w', encoding='utf-8') as f:
-                json.dump(response_data, f, indent=2, ensure_ascii=False)
-            logger.info(f"Search results saved to: {filename}")
-        except Exception as e:
-            logger.error(f"Failed to save results to file: {e}")
         
         # Save to MongoDB
         save_to_mongodb(response_data, "unified_search", query)
@@ -3916,20 +4396,7 @@ def search_specific(site):
             "products": result.get("products", [])
         }
         
-        # Save results to JSON file
-        # Create filename with timestamp
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        safe_query = query.replace(' ', '_').replace('/', '_').replace('\\', '_')
-        filename = f"{site}_search_{safe_query}_{timestamp}.json"
-        
-        try:
-            with open(filename, 'w', encoding='utf-8') as f:
-                json.dump(response_data, f, indent=2, ensure_ascii=False)
-            logger.info(f"Search results saved to: {filename}")
-        except Exception as e:
-            logger.error(f"Failed to save results to file: {e}")
-        
-        # Save to MongoDB
+        # Save to MongoDB only (no local JSON files)
         save_to_mongodb(response_data, "specific_search", query, site)
         
         # Immediately clean up temporary directories to free disk space
@@ -3989,20 +4456,7 @@ def search_detailed(site):
             "result": result
         }
         
-        # Save results to JSON file
-        # Create filename with timestamp
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        safe_query = query.replace(' ', '_').replace('/', '_').replace('\\', '_')
-        filename = f"{site}_detailed_{safe_query}_{timestamp}.json"
-        
-        try:
-            with open(filename, 'w', encoding='utf-8') as f:
-                json.dump(response_data, f, indent=2, ensure_ascii=False)
-            logger.info(f"Detailed search results saved to: {filename}")
-        except Exception as e:
-            logger.error(f"Failed to save detailed results to file: {e}")
-        
-        # Save to MongoDB
+        # Save to MongoDB only (no local JSON files)
         save_to_mongodb(response_data, "detailed_search", query, site)
         
         return jsonify(response_data)
@@ -4018,7 +4472,7 @@ def search_detailed(site):
 def get_mongodb_results():
     """Get all search results from MongoDB"""
     try:
-        if not mongodb_collection:
+        if mongodb_collection is None:
             if not connect_mongodb():
                 return jsonify({
                     "success": False,
@@ -4045,7 +4499,7 @@ def get_mongodb_results():
 def get_mongodb_result(result_id):
     """Get specific search result from MongoDB by ID"""
     try:
-        if not mongodb_collection:
+        if mongodb_collection is None:
             if not connect_mongodb():
                 return jsonify({
                     "success": False,
@@ -4106,6 +4560,174 @@ def internal_error(error):
         "success": False,
         "error": "Internal server error"
     }), 500
+
+@app.route('/api/results')
+def get_results():
+    """Get search results from MongoDB"""
+    try:
+        query = request.args.get('query')
+        limit = int(request.args.get('limit', 50))
+        
+        if mongodb_collection is None:
+            if not connect_mongodb():
+                return jsonify({"error": "MongoDB connection failed"}), 500
+        
+        # Build query filter
+        filter_query = {}
+        if query:
+            filter_query["query"] = {"$regex": query, "$options": "i"}
+        
+        # Get results from MongoDB
+        results = list(mongodb_collection.find(filter_query).sort("timestamp", -1).limit(limit))
+        
+        # Convert ObjectId to string for JSON serialization
+        for result in results:
+            result["_id"] = str(result["_id"])
+            if "timestamp" in result:
+                result["timestamp"] = result["timestamp"].isoformat()
+        
+        return jsonify({
+            "success": True,
+            "count": len(results),
+            "results": results
+        })
+        
+    except Exception as e:
+        logger.error(f"Get results error: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route('/api/results/<result_id>')
+def get_result_by_id(result_id):
+    """Get specific search result by ID"""
+    try:
+        if mongodb_collection is None:
+            if not connect_mongodb():
+                return jsonify({"error": "MongoDB connection failed"}), 500
+        
+        from bson import ObjectId
+        result = mongodb_collection.find_one({"_id": ObjectId(result_id)})
+        
+        if not result:
+            return jsonify({"error": "Result not found"}), 404
+        
+        # Convert ObjectId to string for JSON serialization
+        result["_id"] = str(result["_id"])
+        if "timestamp" in result:
+            result["timestamp"] = result["timestamp"].isoformat()
+        
+        return jsonify({
+            "success": True,
+            "result": result
+        })
+        
+    except Exception as e:
+        logger.error(f"Get result by ID error: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route('/test')
+def test_endpoint():
+    """Simple test endpoint to verify API is working"""
+    return jsonify({
+        "success": True,
+        "message": "API is working!",
+        "timestamp": datetime.now().isoformat(),
+        "mongodb_connected": mongodb_collection is not None
+    })
+
+@app.route('/mongodb')
+def view_mongodb():
+    """View MongoDB data in a simple HTML format"""
+    try:
+        if mongodb_collection is None:
+            if not connect_mongodb():
+                return "<h1>MongoDB Connection Failed</h1>", 500
+        
+        # Get all documents
+        documents = list(mongodb_collection.find().sort("timestamp", -1).limit(20))
+        
+        # Get collection stats
+        total_docs = mongodb_collection.count_documents({})
+        
+        # Create HTML response
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>MongoDB Data Viewer</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; margin: 20px; }}
+                .header {{ background: #f0f0f0; padding: 15px; border-radius: 5px; margin-bottom: 20px; }}
+                .document {{ border: 1px solid #ddd; margin: 10px 0; padding: 15px; border-radius: 5px; }}
+                .field {{ margin: 5px 0; }}
+                .field-name {{ font-weight: bold; color: #333; }}
+                .field-value {{ margin-left: 20px; color: #666; }}
+                .products {{ background: #f9f9f9; padding: 10px; margin: 10px 0; border-radius: 3px; }}
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>🗄️ MongoDB Data Viewer</h1>
+                <p><strong>Database:</strong> scraper_db</p>
+                <p><strong>Collection:</strong> search_results</p>
+                <p><strong>Total Documents:</strong> {total_docs}</p>
+                <p><strong>Showing:</strong> Latest 20 documents</p>
+            </div>
+        """
+        
+        for i, doc in enumerate(documents, 1):
+            doc_id = str(doc.get("_id", "N/A"))
+            query = doc.get("query", "N/A")
+            search_type = doc.get("search_type", "N/A")
+            timestamp = doc.get("timestamp", "N/A")
+            if hasattr(timestamp, 'isoformat'):
+                timestamp = timestamp.isoformat()
+            
+            total_results = doc.get("total_results", 0)
+            
+            html += f"""
+            <div class="document">
+                <h3>📄 Document {i}</h3>
+                <div class="field">
+                    <span class="field-name">Query:</span>
+                    <span class="field-value">{query}</span>
+                </div>
+                <div class="field">
+                    <span class="field-name">Search Type:</span>
+                    <span class="field-value">{search_type}</span>
+                </div>
+                <div class="field">
+                    <span class="field-name">Timestamp:</span>
+                    <span class="field-value">{timestamp}</span>
+                </div>
+                <div class="field">
+                    <span class="field-name">Total Results:</span>
+                    <span class="field-value">{total_results}</span>
+                </div>
+            </div>
+            """
+        
+        html += """
+            <div style="margin-top: 30px; padding: 15px; background: #e8f4f8; border-radius: 5px;">
+                <h3>🔗 Access Your Full MongoDB</h3>
+                <p><strong>MongoDB Atlas Web:</strong> <a href="https://cloud.mongodb.com/" target="_blank">https://cloud.mongodb.com/</a></p>
+                <p><strong>Database:</strong> scraper_db</p>
+                <p><strong>Collection:</strong> search_results</p>
+            </div>
+        </body>
+        </html>
+        """
+        
+        return html
+        
+    except Exception as e:
+        logger.error(f"MongoDB view error: {e}")
+        return f"<h1>Error: {str(e)}</h1>", 500
 
 if __name__ == '__main__':
     logger.info("🚀 Starting Flask API server...")

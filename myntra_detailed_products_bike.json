@@ -1,0 +1,40 @@
+{
+  "query": "bike",
+  "search_url": "https://www.myntra.com/bike?rawQuery=bike",
+  "total_products": 3,
+  "products": [
+    {
+      "name": "Royal Enfield",
+      "price": "MRP₹ 1750",
+      "brand": "Toys And Games",
+      "category": "Home",
+      "rating": "4.6",
+      "link": "https://www.myntra.com/toy-vehicles/royal+enfield/royal-enfield-scale-model-meteor-350-stellar-red/30171912/buy",
+      "images": [
+        {
+          "url": "https://assets.myntassets.com/f_auto,h_150,q_auto:best,w_112/assets/images/30171914/2024/7/10/a6485124-75f8-4bbf-a04e-f7badc2cc42e1720603353598RoyalEnfieldMeteor350ManualToyVehicles1.jpg",
+          "alt": "",
+          "thumbnail": "https://assets.myntassets.com/f_auto,h_150,q_auto:best,w_112/assets/images/30171914/2024/7/10/a6485124-75f8-4bbf-a04e-f7badc2cc42e1720603353598RoyalEnfieldMeteor350ManualToyVehicles1.jpg"
+        }
+      ]
+    },
+    {
+      "name": "PRODUCT DETAILS\nType: Bike\nColour: Black, red, blue and white\nAge Group: 4 years plus\nSet Contains: 1:14 Scale Die Cast Alloy Metal Pull Back Bike Toys for Kids\nAssembly Required: No\nBattery Type: NA\nOperation Mode: Manual Operation\n\nFeatures:\n\nMultiple Color Options : The die-cast alloy collectible motorcycle model comes in a variety of bright colors, offering a personalized touch for collectors and enthusiasts.\nRobust alloy casing : The casing of this model is made of high-quality alloy, ensuring long-lasting durability and resilience.\nIt is perfect for display or active play.\nExquisite details : Each die-cast alloy collectible motorcycle model features meticulous attention to detail, providing a realistic and fascinating miniature replica.\nRewind Function : This model features an innovative rewind function that adds an exciting element to the game as the motorcycle can move forward and return seamlessly.\nIdeal Collectible and Gift : Whether for avid collectors or young enthusiasts, the die-cast alloy collectible motorcycle model makes an excellent gift that combines quality, realism and fun in one remarkable package.\nSize & Fit\nDimension: 12 cm x 6.5 cm x 5.8 cm (Length x Width x Height)\nMaterial & Care\nPlastic\nWipe with dry clean cloth to remove dust\nSpecifications\nOperation Mode\nManual Operation\nFeatures\nBPA Free\nType\nBike\nMultipack Set\nSingle\nComplete The Look\nThe OPINA 1:14 Die-Cast Alloy Metal Pull Back Bike is a must-have for retailers offering wholesale toys and innovative gifts. With its sleek, miniaturized design and sturdy alloy body, this toy bike is perfect for children's collections or as a novelty item for bike enthusiasts. Its pull-back action adds an extra layer of fun, making it an engaging choice in the children's entertainment market, while its quality and detail attract a broad customer base.Items Included In The Package:",
+      "price": "₹569",
+      "brand": "Toys And Games",
+      "category": "Home",
+      "rating": "3.7",
+      "link": "https://www.myntra.com/toy-vehicles/opina/opina-114-scale-die-cast-alloy-metal-pull-back-bike-toy-vehicles/32840349/buy",
+      "images": []
+    },
+    {
+      "name": "PRODUCT DETAILS\nSet Contains: 1:14 Scale Die Cast Alloy Metal Pull Back Bike Toys\nAdd Ons:NA Battery Type: NA\nOperation Mode: Manual Operation\nColour: Black\nAge Group: 18 months Plus\nSize & Fit\nDimension: 12cm x 5.8 cm x 6.5cm (Length x Width x Height)\nMaterial & Care\nPlastic\nClean with dry cloth\nSpecifications\nOperation Mode\nManual Operation\nFeatures\nBPA Free\nType\nBike\nMultipack Set\nSingle\nComplete The Look\nThe ADKD 1:14 Die-Cast Alloy Metal Pull Back Bike is a must-have for retailers offering wholesale toys and innovative gifts. With its sleek, miniaturized design and sturdy alloy body, this toy bike is perfect for children's collections or as a novelty item for bike enthusiasts. Its pull-back action adds an extra layer of fun, making it an engaging choice in the children's entertainment market, while its quality and detail attract a broad customer base.Items Included In The Package:",
+      "price": "₹569",
+      "brand": "Toys And Games",
+      "category": "Home",
+      "rating": "1.8",
+      "link": "https://www.myntra.com/toy-vehicles/adkd/-adkd-114-scale-die-cast-alloy-pull-back-bike-toys-vehicles/32840473/buy",
+      "images": []
+    }
+  ]
+}

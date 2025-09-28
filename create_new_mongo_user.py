@@ -16,7 +16,7 @@ def test_with_simple_credentials():
     password = "testpass123"
     encoded_password = urllib.parse.quote_plus(password)
     
-    uri = f"mongodb+srv://{username}:{encoded_password}@goat.kgtnygx.mongodb.net/?retryWrites=true&w=majority"
+    uri = f"mongodb+srv://{username}:{encoded_password}@bilmo.jmeclfh.mongodb.net/?retryWrites=true&w=majority"
     
     print(f"Username: {username}")
     print(f"Password: {password}")
@@ -39,7 +39,7 @@ def test_cluster_connectivity():
     # Test without authentication
     try:
         # This will fail auth but should reach the cluster
-        client = MongoClient("mongodb+srv://goat.kgtnygx.mongodb.net/", serverSelectionTimeoutMS=5000)
+        client = MongoClient("mongodb+srv://bilmo.jmeclfh.mongodb.net/", serverSelectionTimeoutMS=5000)
         client.admin.command('ping')
     except Exception as e:
         error_msg = str(e)

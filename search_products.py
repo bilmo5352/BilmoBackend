@@ -13,7 +13,7 @@ import pymongo
 from pymongo import MongoClient
 
 # MongoDB Configuration
-MONGODB_URI = "mongodb+srv://hrithick:hrimee%400514@goat.kgtnygx.mongodb.net/?retryWrites=true&w=majority&appName=goat"
+MONGODB_URI = "mongodb+srv://hrithick:hrithick@bilmo.jmeclfh.mongodb.net/?retryWrites=true&w=majority&appName=bilmo"
 DB_NAME = "scraper_db"
 COLLECTION_NAME = "search_results"
 
@@ -25,7 +25,7 @@ def connect_mongodb():
         username = "hrithick"
         password = "hrimee@0514"
         encoded_password = urllib.parse.quote_plus(password)
-        uri = f"mongodb+srv://{username}:{encoded_password}@goat.kgtnygx.mongodb.net/?retryWrites=true&w=majority&appName=goat"
+        uri = f"mongodb+srv://{username}:{encoded_password}@bilmo.jmeclfh.mongodb.net/?retryWrites=true&w=majority&appName=bilmo"
         
         client = MongoClient(uri)
         db = client[DB_NAME]

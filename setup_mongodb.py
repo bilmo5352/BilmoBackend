@@ -45,7 +45,7 @@ def main():
     print(f"mongodb+srv://{username}:{encoded_password}@<cluster-name>.mongodb.net/?retryWrites=true&w=majority")
     
     print(f"\n🔍 Current connection string in your code:")
-    print(f"mongodb+srv://{username}:{encoded_password}@goat.kgtnygx.mongodb.net/?retryWrites=true&w=majority&appName=goat")
+    print(f"mongodb+srv://{username}:{encoded_password}@bilmo.jmeclfh.mongodb.net/?retryWrites=true&w=majority&appName=bilmo")
     
     print("\n⚠️ Common issues and solutions:")
     print("1. Authentication failed:")

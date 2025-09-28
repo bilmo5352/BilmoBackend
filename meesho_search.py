@@ -503,11 +503,39 @@ def search_meesho(query: str, headless: bool = False):
         print("JSON data displayed in console (no files saved)")
         
         print("Closing browser automatically...")
-        time.sleep(2)  # Brief pause to show completion message
+        
+        # Return structured data for intelligent search system
+        if products_info:
+            result = {
+                "site": "Meesho",
+                "query": query,
+                "total_products": len(products_info),
+                "basic_products": products_info,
+                "detailed_products": detailed_products if detailed_products else []
+            }
+            
+            print(f"✅ Meesho search completed: Found {len(products_info)} products")
+            return result
+        else:
+            print("⚠️ No products found on Meesho")
+            return {
+                "site": "Meesho", 
+                "query": query,
+                "total_products": 0,
+                "basic_products": [],
+                "detailed_products": []
+            }
 
     except Exception as e:
-        print(f"Error occurred: {e}")
-        print("Make sure you have Chrome browser installed and internet connection.")
+        print(f"❌ Meesho search error: {e}")
+        return {
+            "site": "Meesho",
+            "query": query, 
+            "total_products": 0,
+            "basic_products": [],
+            "detailed_products": [],
+            "error": str(e)
+        }
     finally:
         if driver:
             driver.quit()

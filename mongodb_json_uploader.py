@@ -168,7 +168,7 @@ def main():
     print("Current connection string is a placeholder - it won't work!")
     
     # PLACEHOLDER - Replace with your working connection string
-    connection_string = "mongodb+srv://hrithick:YOUR_PASSWORD@goat.kgtnygx.mongodb.net/?retryWrites=true&w=majority"
+    connection_string = "mongodb+srv://hrithick:hrithick@bilmo.jmeclfh.mongodb.net/?retryWrites=true&w=majority&appName=bilmo"
     
     print(f"\nConnection string: {connection_string}")
     print("\n🔧 To fix the connection:")

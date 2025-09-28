@@ -566,18 +566,16 @@ def extract_product_details(driver: webdriver.Chrome) -> dict:
 def search_amazon(query: str, headless: bool = False, max_results: int = 8):
     driver = create_driver(headless=headless)
     try:
-        driver.get("https://www.amazon.in")
-        wait = WebDriverWait(driver, 10)
-
-        # Search input
-        search_input = wait.until(EC.presence_of_element_located((By.ID, "twotabsearchtextbox")))
-        search_input.clear()
-        search_input.send_keys(query)
-        search_input.send_keys(Keys.ENTER)
+        print(f"Searching Amazon for: {query}")
+        
+        # Navigate directly to search URL (like Meesho approach)
+        search_url = f"https://www.amazon.in/s?k={query.replace(' ', '+')}"
+        driver.get(search_url)
+        time.sleep(5)
 
         # Wait for search results to load
         print("Waiting for search results to load...")
-        time.sleep(5)  # Give more time for results to load
+        time.sleep(5)
         
         # Save the HTML content of the search results page
         html_content = driver.page_source
@@ -591,10 +589,10 @@ def search_amazon(query: str, headless: bool = False, max_results: int = 8):
         print(f"Current URL: {driver.current_url}")
         print(f"Page title: {driver.title}")
         
-        # Extract detailed product information
+        # Extract product information from search results page (like Meesho)
         products_info = []
         
-        # Try different selectors for product cards
+        # Try different selectors for product cards (simplified like Meesho)
         product_selectors = [
             "div[data-component-type='s-search-result']",  # Main product card container
             "div.s-result-item",  # Alternative card selector
@@ -606,7 +604,7 @@ def search_amazon(query: str, headless: bool = False, max_results: int = 8):
         for selector in product_selectors:
             try:
                 cards = driver.find_elements(By.CSS_SELECTOR, selector)
-                if cards:
+                if cards and len(cards) > 1:  # More than 1 to avoid header/footer elements
                     product_cards = cards
                     print(f"Found {len(cards)} product cards using selector: {selector}")
                     break
@@ -626,26 +624,17 @@ def search_amazon(query: str, headless: bool = False, max_results: int = 8):
             # Try to find any text content in the card
             all_text = first_card.text.strip()
             print(f"All text in first card: {all_text[:200]}...")
-            
-            # Try to find any links
-            links = first_card.find_elements(By.TAG_NAME, "a")
-            print(f"Found {len(links)} links in first card")
-            for i, link in enumerate(links[:3]):
-                print(f"  Link {i+1}: {link.get_attribute('href')} - Text: {link.text.strip()[:50]}")
         
-        # Extract information from each product card
+        # Extract information from each product card (simplified like Meesho)
         for i, card in enumerate(product_cards[:max_results]):
             try:
                 product_info = {}
                 
-                # More comprehensive title selectors
+                # Extract title from various possible elements (simplified like Meesho)
                 title_selectors = [
-                    "h2.a-size-mini a span",  # Grid view title
-                    "h2.a-size-mini a",  # Grid view title link
-                    "h2 a span",  # Alternative title
-                    "h2 a",  # Alternative title link
-                    "a[data-automation-id='product-title']",  # Automation title
-                    "span[data-automation-id='product-title']",  # Automation title span
+                    "h2 a span",  # Main title in search results
+                    "h2 a",  # Main title link in search results
+                    "span.a-size-medium.a-color-base.a-text-normal",  # Title span
                     "h3 a span",  # Alternative heading
                     "h3 a",  # Alternative heading link
                 ]
@@ -654,88 +643,125 @@ def search_amazon(query: str, headless: bool = False, max_results: int = 8):
                     try:
                         title_elem = card.find_element(By.CSS_SELECTOR, selector)
                         title_text = title_elem.text.strip()
-                        if title_text and len(title_text) > 5:  # Only use if meaningful text
+                        # Skip discount percentages and other non-product names (like Meesho)
+                        if (title_text and len(title_text) > 5 and len(title_text) < 200 and
+                            not title_text.endswith('%') and
+                            not title_text.endswith('off') and
+                            not title_text.startswith('%') and
+                            'off' not in title_text.lower() and
+                            not title_text.replace('%', '').replace('off', '').strip().isdigit()):
                             product_info['title'] = title_text
-                            product_info['link'] = title_elem.get_attribute('href') or ''
+                            # Try to get link from the element or its parent
+                            try:
+                                if title_elem.tag_name == 'a':
+                                    product_info['link'] = title_elem.get_attribute('href') or ''
+                                else:
+                                    # Try to find a parent link
+                                    parent_link = title_elem.find_element(By.XPATH, "./ancestor::a")
+                                    if parent_link:
+                                        product_info['link'] = parent_link.get_attribute('href') or ''
+                            except:
+                                pass
                             break
                     except:
                         continue
                 
-                # More comprehensive price selectors - prioritize current/discounted price
+                # If no title found, try to get it from image alt text (Amazon stores product names there)
+                if not product_info.get('title'):
+                    try:
+                        img_elem = card.find_element(By.CSS_SELECTOR, "img")
+                        img_alt = img_elem.get_attribute('alt') or ''
+                        if img_alt and len(img_alt) > 10:
+                            # Clean up the alt text to get just the product name
+                            product_name = img_alt.split(',')[0].strip()  # Take first part before comma
+                            product_info['title'] = product_name
+                    except:
+                        pass
+                
+                # If no title found, try to get it from the card's text content (like Meesho)
+                if not product_info.get('title'):
+                    try:
+                        card_text = card.text.strip()
+                        lines = card_text.split('\n')
+                        for line in lines:
+                            line = line.strip()
+                            # Skip discount percentages, prices, delivery info, reviews, etc.
+                            if (line and len(line) > 5 and len(line) < 100 and 
+                                not line.startswith('₹') and 
+                                not line.startswith('%') and 
+                                not line.endswith('%') and
+                                not line.endswith('off') and
+                                'off' not in line.lower() and 
+                                'delivery' not in line.lower() and 
+                                'reviews' not in line.lower() and
+                                'rating' not in line.lower() and
+                                'free' not in line.lower() and
+                                ':' not in line and  # Skip time formats
+                                not line.replace(':', '').replace('h', '').replace('m', '').replace('s', '').replace(' ', '').isdigit()):
+                                product_info['title'] = line
+                                break
+                    except:
+                        pass
+                
+                # Extract price from various possible elements (simplified like Meesho)
                 price_selectors = [
                     "span.a-price.a-text-price.a-size-medium span.a-offscreen",  # Current price in offscreen
                     "span.a-price.a-size-medium span.a-offscreen",  # Current price without text-price
                     "span.a-offscreen",  # Price in offscreen (current price)
                     "span.a-price-whole",  # Main price whole part (current price)
+                    "span.a-price-symbol",  # Price symbol
                     "span[data-automation-id='product-price']",  # Automation price
                     "div[data-automation-id='product-price']",  # Automation price div
-                    "span.a-price-range",  # Price range selector
                 ]
-                
-                # Extract current price and MRP separately for search results
-                current_price = ""
-                mrp_price = ""
                 
                 for selector in price_selectors:
                     try:
                         price_elem = card.find_element(By.CSS_SELECTOR, selector)
                         price_text = price_elem.text.strip()
-                        if price_text and ('₹' in price_text or 'Rs' in price_text or price_text.replace(',', '').replace('.', '').isdigit()):
-                            # Check if this is likely the current price (not struck through)
-                            try:
-                                parent_elem = price_elem.find_element(By.XPATH, "./..")
-                                parent_classes = parent_elem.get_attribute('class') or ''
-                                
-                                # If parent has strikethrough, it's likely MRP
-                                if 'a-text-strike' in parent_classes or 'a-text-strikethrough' in parent_classes:
-                                    if not mrp_price:
-                                        mrp_price = price_text
-                                else:
-                                    if not current_price:
-                                        current_price = price_text
-                            except:
-                                # If we can't determine, assume it's current price
-                                if not current_price:
-                                    current_price = price_text
-                                    
+                        if price_text and ('₹' in price_text or 'Rs' in price_text or 'INR' in price_text):
+                            # If we only got the symbol, try to get the parent element
+                            if price_text == '₹':
+                                try:
+                                    parent = price_elem.find_element(By.XPATH, "./..")
+                                    parent_text = parent.text.strip()
+                                    if parent_text and '₹' in parent_text:
+                                        product_info['price'] = parent_text
+                                        break
+                                except:
+                                    pass
+                            else:
+                                product_info['price'] = price_text
+                                break
                     except:
                         continue
                 
-                # Set the final price - prioritize current price over MRP
-                if current_price:
-                    product_info['price'] = current_price
-                    if mrp_price:
-                        product_info['mrp'] = mrp_price
-                        # Calculate discount percentage for search results
-                        try:
-                            current_num = float(current_price.replace('₹', '').replace(',', '').replace('Rs', '').strip())
-                            mrp_num = float(mrp_price.replace('₹', '').replace(',', '').replace('Rs', '').strip())
-                            if mrp_num > current_num:
-                                discount_percent = ((mrp_num - current_num) / mrp_num) * 100
-                                product_info["discount_percentage"] = f"{discount_percent:.0f}% off"
-                                product_info["discount_amount"] = f"₹{mrp_num - current_num:,.0f}"
-                        except:
-                            pass
-                elif mrp_price:
-                    product_info['price'] = mrp_price
+                # If no price found, try to extract from card text (like Meesho)
+                if not product_info.get('price'):
+                    try:
+                        card_text = card.text.strip()
+                        lines = card_text.split('\n')
+                        for line in lines:
+                            line = line.strip()
+                            if line.startswith('₹') and len(line) < 20:
+                                product_info['price'] = line
+                                break
+                        # If still no price, try to find any line with ₹
+                        if not product_info.get('price'):
+                            for line in lines:
+                                if '₹' in line and len(line) < 30:
+                                    # Clean up the price line
+                                    price_line = line.strip()
+                                    if price_line.count('₹') == 1:  # Only one price symbol
+                                        product_info['price'] = price_line
+                                        break
+                    except:
+                        pass
                 
-                # More comprehensive rating selectors
+                # Extract rating from various possible elements (simplified like Meesho)
                 rating_selectors = [
                     "span.a-icon-alt",  # Rating stars with text
-                    "span[data-automation-id='product-rating']",  # Automation rating
-                    "div[data-automation-id='product-rating']",  # Automation rating div
-                    "span.a-icon-star",  # Star icon
                     "span[aria-label*='star']",  # Star with aria-label
                     "span[aria-label*='out of']",  # Rating with aria-label
-                    "span.a-size-base.a-color-base",  # Base size color rating
-                    "div.a-row.a-spacing-small span.a-icon-alt",  # Row with spacing
-                    "span.a-icon.a-icon-star",  # Alternative star icon
-                    "span.a-icon.a-icon-star-mini",  # Mini star icon
-                    "span[class*='a-icon-star']",  # Any star icon class
-                    "div[class*='rating'] span",  # Rating div spans
-                    "span[class*='rating']",  # Rating spans
-                    "span.a-size-base",  # Base size spans
-                    "div.a-section span.a-icon-alt"  # Section spans
                 ]
                 
                 for selector in rating_selectors:
@@ -758,75 +784,150 @@ def search_amazon(query: str, headless: bool = False, max_results: int = 8):
                     except:
                         continue
                 
-                # If still no rating found, try XPath approach for search results
+                # If no rating found, try to extract from card text (like Meesho)
                 if not product_info.get('rating'):
                     try:
-                        xpath_selectors = [
-                            ".//span[contains(@class, 'a-icon-alt')]",
-                            ".//span[contains(@aria-label, 'out of')]",
-                            ".//span[contains(@aria-label, 'star')]",
-                            ".//span[contains(@title, 'out of')]",
-                            ".//span[contains(@title, 'star')]"
-                        ]
-                        
-                        for xpath in xpath_selectors:
-                            try:
-                                rating_elem = card.find_element(By.XPATH, xpath)
-                                rating_text = rating_elem.text.strip()
-                                aria_label = rating_elem.get_attribute('aria-label') or ''
-                                title_attr = rating_elem.get_attribute('title') or ''
-                                
-                                if rating_text and ('out of' in rating_text.lower() or rating_text.replace('.', '').replace(',', '').isdigit()):
-                                    product_info['rating'] = rating_text
-                                    break
-                                elif aria_label and ('out of' in aria_label.lower() or 'star' in aria_label.lower()):
-                                    product_info['rating'] = aria_label
-                                    break
-                                elif title_attr and ('out of' in title_attr.lower() or 'star' in title_attr.lower()):
-                                    product_info['rating'] = title_attr
-                                    break
-                            except:
-                                continue
+                        card_text = card.text.strip()
+                        lines = card_text.split('\n')
+                        for line in lines:
+                            line = line.strip()
+                            if line.replace('.', '').isdigit() and len(line) <= 4 and float(line) <= 5.0:
+                                product_info['rating'] = line
+                                break
                     except:
                         pass
                 
-                # More comprehensive review selectors
-                review_selectors = [
-                    "span.a-size-base",  # Reviews count
-                    "span[data-automation-id='product-reviews-count']",  # Automation reviews
-                    "div[data-automation-id='product-reviews-count']",  # Automation reviews div
-                    "a span.a-size-base",  # Reviews count in link
-                ]
+                # Extract image URL (like Meesho)
+                try:
+                    img_elem = card.find_element(By.TAG_NAME, "img")
+                    product_info['image_url'] = img_elem.get_attribute('src') or ''
+                    product_info['image_alt'] = img_elem.get_attribute('alt') or ''
+                except:
+                    product_info['image_url'] = ''
+                    product_info['image_alt'] = ''
                 
-                for selector in review_selectors:
+                # Extract product link - the card itself might be the link (like Meesho)
+                if not product_info.get('link'):
                     try:
-                        review_elem = card.find_element(By.CSS_SELECTOR, selector)
-                        review_text = review_elem.text.strip()
-                        if review_text and ('rating' in review_text.lower() or 'review' in review_text.lower() or ',' in review_text):
-                            product_info['reviews'] = review_text
-                            break
+                        # Check if the card element itself is an anchor tag
+                        if card.tag_name.lower() == 'a':
+                            href = card.get_attribute('href')
+                            if href and '/dp/' in href:
+                                # Make sure it's a full URL
+                                if href.startswith('/'):
+                                    href = 'https://www.amazon.in' + href
+                                product_info['link'] = href
                     except:
-                        continue
+                        pass
                 
-                # More comprehensive availability selectors
-                availability_selectors = [
-                    "span.a-size-small.a-color-success",  # Success color availability
-                    "span.a-size-small.a-color-price",  # Price color availability
-                    "span[data-automation-id='product-availability']",  # Automation availability
-                    "div[data-automation-id='product-availability']",  # Automation availability div
-                ]
-                
-                for selector in availability_selectors:
+                # If still no link found, try to find anchor tags within the card (like Meesho)
+                if not product_info.get('link'):
                     try:
-                        avail_elem = card.find_element(By.CSS_SELECTOR, selector)
-                        avail_text = avail_elem.text.strip()
-                        if avail_text and ('stock' in avail_text.lower() or 'available' in avail_text.lower() or 'delivery' in avail_text.lower()):
-                            product_info['availability'] = avail_text
-                            break
+                        # Look for any anchor tags within the card
+                        link_elements = card.find_elements(By.TAG_NAME, "a")
+                        for link_elem in link_elements:
+                            href = link_elem.get_attribute('href')
+                            if href and ('/dp/' in href or 'amazon.in' in href):
+                                # Make sure it's a full URL
+                                if href.startswith('/'):
+                                    href = 'https://www.amazon.in' + href
+                                product_info['link'] = href
+                                break
                     except:
-                        continue
+                        pass
                 
-                # If we found any meaningful information, add it
+                # Extract brand (try to get from title or other elements) (like Meesho)
+                try:
+                    if product_info.get('title'):
+                        # Common brand names that might be at the start
+                        common_brands = ["Apple", "Samsung", "OnePlus", "Xiaomi", "Realme", "Vivo", "Oppo", "Motorola", "Nokia", "Sony", "LG", "HP", "Dell", "Lenovo", "Asus", "Acer", "MSI", "Google", "Nothing", "Honor", "POCO", "Redmi", "Mi", "JBL", "Boat", "Sennheiser", "Philips", "Panasonic", "Canon", "Nikon", "Amazon"]
+                        for brand in common_brands:
+                            if brand.lower() in product_info['title'].lower():
+                                product_info['brand'] = brand
+                                break
+                        
+                        # If no brand found in common list, try to extract first word as brand
+                        if not product_info.get('brand'):
+                            title_words = product_info['title'].split()
+                            if title_words:
+                                # Take first word if it's not a common word or discount percentage
+                                first_word = title_words[0].strip()
+                                common_words = ["Modern", "Latest", "New", "Best", "Top", "Great", "Super", "Ultra", "Premium", "Quality", "Good", "Nice", "Cool", "Hot", "Trendy", "Stylish", "Fashionable", "Elegant", "Beautiful", "Amazing", "Wonderful", "Excellent", "Perfect", "Special", "Unique", "Exclusive", "Limited", "Classic", "Vintage", "Retro", "Contemporary", "Traditional", "Casual", "Formal", "Party", "Wedding", "Office", "Work", "Daily", "Everyday", "Weekend", "Holiday", "Summer", "Winter", "Spring", "Fall", "Seasonal", "Year", "Round"]
+                                
+                                # Skip discount percentages and numbers
+                                if (first_word not in common_words and 
+                                    len(first_word) > 2 and 
+                                    not first_word.replace('%', '').replace('off', '').isdigit() and
+                                    not first_word.endswith('%') and
+                                    not first_word.endswith('off')):
+                                    product_info['brand'] = first_word
+                except:
+                    pass
+                
+                # Extract category (try to infer from title) (like Meesho)
+                try:
+                    if product_info.get('title'):
+                        title_lower = product_info['title'].lower()
+                        if 'mobile' in title_lower or 'phone' in title_lower or 'smartphone' in title_lower or 'iphone' in title_lower or 'galaxy' in title_lower or 'android' in title_lower:
+                            product_info['category'] = 'Mobile'
+                        elif 'laptop' in title_lower or 'computer' in title_lower or 'notebook' in title_lower:
+                            product_info['category'] = 'Laptop'
+                        elif 'tablet' in title_lower or 'ipad' in title_lower:
+                            product_info['category'] = 'Tablet'
+                        elif 'headphone' in title_lower or 'earphone' in title_lower or 'speaker' in title_lower:
+                            product_info['category'] = 'Audio'
+                        elif 'watch' in title_lower or 'smartwatch' in title_lower:
+                            product_info['category'] = 'Watch'
+                        elif 'camera' in title_lower or 'dslr' in title_lower:
+                            product_info['category'] = 'Camera'
+                        elif 'saree' in title_lower:
+                            product_info['category'] = 'Saree'
+                        elif 'shirt' in title_lower:
+                            product_info['category'] = 'Shirt'
+                        elif 'pant' in title_lower:
+                            product_info['category'] = 'Pant'
+                        elif 'shoe' in title_lower:
+                            product_info['category'] = 'Shoe'
+                        elif 'dress' in title_lower:
+                            product_info['category'] = 'Dress'
+                        elif 'kurta' in title_lower:
+                            product_info['category'] = 'Kurta'
+                        elif 'jean' in title_lower:
+                            product_info['category'] = 'Jeans'
+                        elif 'top' in title_lower:
+                            product_info['category'] = 'Top'
+                        elif 'bottom' in title_lower:
+                            product_info['category'] = 'Bottom'
+                        else:
+                            product_info['category'] = 'General'
+                except:
+                    pass
+                
+                # Extract reviews count (like Meesho)
+                try:
+                    card_text = card.text.strip()
+                    lines = card_text.split('\n')
+                    for line in lines:
+                        line = line.strip()
+                        if ('rating' in line.lower() or 'review' in line.lower()) and ',' in line:
+                            product_info['reviews_count'] = line
+                            break
+                except:
+                    pass
+                
+                # Extract availability (like Meesho)
+                try:
+                    card_text = card.text.strip()
+                    lines = card_text.split('\n')
+                    for line in lines:
+                        line = line.strip()
+                        if 'delivery' in line.lower() or 'stock' in line.lower() or 'available' in line.lower():
+                            product_info['availability'] = line
+                            break
+                except:
+                    pass
+                
+                # If we found any meaningful information, add it (like Meesho)
                 if product_info.get('title') or product_info.get('price'):
                     products_info.append(product_info)
                     
@@ -834,7 +935,7 @@ def search_amazon(query: str, headless: bool = False, max_results: int = 8):
                 print(f"Error extracting info from product {i+1}: {e}")
                 continue
         
-        # Display extracted information
+        # Display extracted information (like Meesho)
         if products_info:
             print(f"\n{'='*60}")
             print(f"EXTRACTED PRODUCT INFORMATION")
@@ -842,124 +943,139 @@ def search_amazon(query: str, headless: bool = False, max_results: int = 8):
             
             for i, product in enumerate(products_info, 1):
                 print(f"\n{i}. {product.get('title', 'Title not found')}")
-                print(f"   Current Price: {product.get('price', 'Price not found')}")
-                if product.get('mrp'):
-                    print(f"   Original Price (MRP): {product['mrp']}")
-                if product.get('discount_percentage'):
-                    print(f"   Discount: {product['discount_percentage']}")
-                if product.get('discount_amount'):
-                    print(f"   You Save: {product['discount_amount']}")
+                print(f"   Price: {product.get('price', 'Price not found')}")
                 if product.get('rating'):
                     print(f"   Rating: {product['rating']}")
-                if product.get('reviews'):
-                    print(f"   Reviews: {product['reviews']}")
-                if product.get('availability'):
-                    print(f"   Availability: {product['availability']}")
+                if product.get('brand'):
+                    print(f"   Brand: {product['brand']}")
+                if product.get('category'):
+                    print(f"   Category: {product['category']}")
                 if product.get('link'):
                     print(f"   Link: {product['link']}")
+                if product.get('image_url'):
+                    print(f"   Image: {product['image_url']}")
                 print("-" * 50)
         else:
             print("No product information could be extracted.")
 
-        # Save extracted data to JSON file
+        # Display JSON data without saving to file (like Meesho)
         if products_info:
-            json_filename = f"amazon_products_{query.replace(' ', '_')}.json"
-            with open(json_filename, 'w', encoding='utf-8') as f:
-                json.dump({
-                    'query': query,
-                    'search_url': driver.current_url,
-                    'total_products': len(products_info),
-                    'products': products_info
-                }, f, indent=2, ensure_ascii=False)
-            print(f"\nProduct data also saved as: {json_filename}")
+            json_data = {
+                'query': query,
+                'search_url': driver.current_url,
+                'total_products': len(products_info),
+                'products': products_info
+            }
+            print(f"\n{'='*60}")
+            print(f"PRODUCT DATA (JSON FORMAT)")
+            print(f"{'='*60}")
+            print(json.dumps(json_data, indent=2, ensure_ascii=False))
             
-            # Extract detailed product information by visiting each product page
+            # Create detailed products from search results data (like Meesho)
             detailed_products = []
             
-            for i, product in enumerate(products_info[:3]):  # Limit to first 3 products
+            print(f"\n{'='*60}")
+            print(f"CREATING DETAILED PRODUCTS FROM SEARCH RESULTS")
+            print(f"{'='*60}")
+            
+            # Take the first 3 products with the most complete information
+            best_products = []
+            for product in products_info:
+                if product.get('title') and product.get('price'):
+                    best_products.append(product)
+                    if len(best_products) >= 3:
+                        break
+            
+            for i, product in enumerate(best_products, 1):
                 try:
-                    print(f"\nExtracting details for product {i+1}: {product.get('title', 'Unknown')}")
+                    print(f"\nProcessing product {i}: {product.get('title', 'Unknown')}")
                     
-                    # Find the product card and click on it
-                    if i < len(product_cards):
-                        product_card = product_cards[i]
-                        clickable_elements = product_card.find_elements(By.TAG_NAME, "a")
-                        
-                        if clickable_elements:
-                            product_link = clickable_elements[0]
-                            product_link.click()
-                            
-                            # Wait for page to load
-                            time.sleep(3)
-                            
-                            # Check if new tab opened
-                            if len(driver.window_handles) > 1:
-                                driver.switch_to.window(driver.window_handles[-1])
-                                print(f"  Switched to product page: {driver.current_url}")
-                                
-                                # Extract detailed product information
-                                detailed_product = extract_product_details(driver)
-                                detailed_products.append(detailed_product)
-                                
-                                # Close the product tab and go back to search results
-                                driver.close()
-                                driver.switch_to.window(driver.window_handles[0])
-                                time.sleep(1)
-                            else:
-                                print(f"  No new tab opened for product {i+1}")
-                                
+                    detailed_product = {
+                        "name": product.get('title', ''),
+                        "price": product.get('price', ''),
+                        "brand": product.get('brand', ''),
+                        "category": product.get('category', ''),
+                        "rating": product.get('rating', ''),
+                        "link": product.get('link', ''),
+                        "images": [{"url": product.get('image_url', ''), "alt": product.get('image_alt', ''), "thumbnail": product.get('image_url', '')}] if product.get('image_url') else []
+                    }
+                    
+                    detailed_products.append(detailed_product)
+                    print(f"✅ Successfully processed product {i}")
+                    
                 except Exception as e:
-                    print(f"  Error extracting details for product {i+1}: {e}")
+                    print(f"❌ Error processing product {i}: {e}")
                     continue
             
             # Display detailed product information
             if detailed_products:
                 print(f"\n{'='*80}")
-                print(f"DETAILED PRODUCT INFORMATION")
+                print(f"FINAL RESULTS - {len(detailed_products)} PRODUCTS")
                 print(f"{'='*80}")
                 
                 for i, product in enumerate(detailed_products, 1):
                     print(f"\n{i}. {product.get('name', 'Name not found')}")
-                    print(f"   Current Price: {product.get('price', 'Price not found')}")
-                    if product.get('mrp'):
-                        print(f"   Original Price (MRP): {product['mrp']}")
-                    if product.get('discount_percentage'):
-                        print(f"   Discount: {product['discount_percentage']}")
-                    if product.get('discount_amount'):
-                        print(f"   You Save: {product['discount_amount']}")
-                    if product.get('discount_info'):
-                        print(f"   Additional Discount Info: {product['discount_info']}")
+                    print(f"   Price: {product.get('price', 'Price not found')}")
                     print(f"   Brand: {product.get('brand', 'Brand not found')}")
                     print(f"   Category: {product.get('category', 'Category not found')}")
                     print(f"   Rating: {product.get('rating', 'Rating not found')}")
-                    print(f"   Reviews: {product.get('reviews_count', 'Reviews not found')}")
-                    print(f"   Availability: {product.get('availability', 'Availability not found')}")
                     print(f"   Images: {len(product.get('images', []))} images found")
                     if product.get('images'):
                         print(f"   Main Image: {product['images'][0]['url']}")
-                    print(f"   Specifications: {len(product.get('specifications', {}))} specs found")
                     print(f"   Link: {product.get('link', 'Link not found')}")
                     print("-" * 80)
                 
-                # Save detailed products to JSON
-                detailed_json_filename = f"amazon_detailed_products_{query.replace(' ', '_')}.json"
-                with open(detailed_json_filename, 'w', encoding='utf-8') as f:
-                    json.dump({
-                        'query': query,
-                        'search_url': driver.current_url,
-                        'total_products': len(detailed_products),
-                        'products': detailed_products
-                    }, f, indent=2, ensure_ascii=False)
-                print(f"\nDetailed product data saved as: {detailed_json_filename}")
+                # Display detailed products JSON without saving to file (like Meesho)
+                detailed_json_data = {
+                    'query': query,
+                    'search_url': driver.current_url,
+                    'total_products': len(detailed_products),
+                    'products': detailed_products
+                }
+                print(f"\n{'='*60}")
+                print(f"DETAILED PRODUCT DATA (JSON FORMAT)")
+                print(f"{'='*60}")
+                print(json.dumps(detailed_json_data, indent=2, ensure_ascii=False))
             else:
                 print("\nNo detailed product information could be extracted.")
 
-        print(f"\nYou can now open '{filename}' in your browser to view the full search results page.")
-        print("The browser will stay open for 10 seconds so you can see the page...")
+        print(f"\nFiles created:")
+        print(f"- {filename} (Search results HTML)")
+        print("JSON data displayed in console (no files saved)")
         
-        # Keep browser open for a bit so user can see the page
-        time.sleep(10)
+        print("Closing browser automatically...")
+        
+        # Return structured data for intelligent search system (like Meesho)
+        if products_info:
+            result = {
+                "site": "Amazon",
+                "query": query,
+                "total_products": len(products_info),
+                "basic_products": products_info,
+                "detailed_products": detailed_products if detailed_products else []
+            }
+            
+            print(f"✅ Amazon search completed: Found {len(products_info)} products")
+            return result
+        else:
+            print("⚠️ No products found on Amazon")
+            return {
+                "site": "Amazon", 
+                "query": query,
+                "total_products": 0,
+                "basic_products": [],
+                "detailed_products": []
+            }
 
+    except Exception as e:
+        print(f"❌ Amazon search error: {e}")
+        return {
+            "site": "Amazon",
+            "query": query, 
+            "total_products": 0,
+            "products": [],
+            "error": str(e)
+        }
     finally:
         driver.quit()
 

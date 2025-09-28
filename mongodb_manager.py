@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # MongoDB Configuration
-MONGODB_URI = "mongodb+srv://hrithick:hrimee%400514@goat.kgtnygx.mongodb.net/?retryWrites=true&w=majority&appName=goat"
+MONGODB_URI = "mongodb+srv://hrithick:hrithick@bilmo.jmeclfh.mongodb.net/?retryWrites=true&w=majority&appName=bilmo"
 DB_NAME = "scraper_db"
 COLLECTION_NAME = "search_results"
 JSON_FILES_COLLECTION = "json_files"

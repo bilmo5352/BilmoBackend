@@ -8,7 +8,7 @@ import urllib.parse
 
 # Your credentials
 username = "hrithick"
-password = "hrimee@0514"
+password = "hrithick"
 
 # URL encode the password
 encoded_password = urllib.parse.quote_plus(password)
@@ -17,9 +17,9 @@ print(f"URL encoded password: {encoded_password}")
 
 # Different URI formats to try
 uris = [
-    f"mongodb+srv://{username}:{encoded_password}@goat.kgtnygx.mongodb.net/?retryWrites=true&w=majority&appName=goat",
-    f"mongodb+srv://{username}:{password}@goat.kgtnygx.mongodb.net/?retryWrites=true&w=majority&appName=goat",
-    f"mongodb+srv://{username}:{encoded_password}@goat.kgtnygx.mongodb.net/scraper_db?retryWrites=true&w=majority",
+    f"mongodb+srv://{username}:{encoded_password}@bilmo.jmeclfh.mongodb.net/?retryWrites=true&w=majority&appName=bilmo",
+    f"mongodb+srv://{username}:{password}@bilmo.jmeclfh.mongodb.net/?retryWrites=true&w=majority&appName=bilmo",
+    f"mongodb+srv://{username}:{encoded_password}@bilmo.jmeclfh.mongodb.net/scraper_db?retryWrites=true&w=majority",
 ]
 
 for i, uri in enumerate(uris, 1):

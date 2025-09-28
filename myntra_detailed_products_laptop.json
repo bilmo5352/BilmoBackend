@@ -1,0 +1,71 @@
+{
+  "query": "laptop",
+  "search_url": "https://www.myntra.com/laptop?rawQuery=laptop",
+  "total_products": 3,
+  "products": [
+    {
+      "name": "Womanix",
+      "price": "₹1425",
+      "brand": "Accessories",
+      "category": "Home",
+      "rating": "4.6",
+      "link": "https://www.myntra.com/handbags/womanix/womanix-shopper-handheld-bag-with-applique/30189101/buy",
+      "images": [
+        {
+          "url": "https://assets.myntassets.com/f_auto,h_150,q_auto:best,w_112/assets/images/30189056/2025/7/1/1e3e2fe4-3199-4957-8e92-f59b2f58e1cd1751352129741-Womanix-Textured-Shopper-Handheld-Bag-with-Applique-25017513-1.jpg",
+          "alt": "",
+          "thumbnail": "https://assets.myntassets.com/f_auto,h_150,q_auto:best,w_112/assets/images/30189056/2025/7/1/1e3e2fe4-3199-4957-8e92-f59b2f58e1cd1751352129741-Womanix-Textured-Shopper-Handheld-Bag-with-Applique-25017513-1.jpg"
+        },
+        {
+          "url": "https://assets.myntassets.com/f_auto,h_150,q_auto:best,w_112/assets/images/30189079/2025/7/1/d03e7ec9-f995-46e3-82a2-98bfc6cd2c431751352892045-Womanix-Solid-Structured-Handheld-Bag-1011751352891451-1.jpg",
+          "alt": "",
+          "thumbnail": "https://assets.myntassets.com/f_auto,h_150,q_auto:best,w_112/assets/images/30189079/2025/7/1/d03e7ec9-f995-46e3-82a2-98bfc6cd2c431751352892045-Womanix-Solid-Structured-Handheld-Bag-1011751352891451-1.jpg"
+        },
+        {
+          "url": "https://assets.myntassets.com/f_auto,h_150,q_auto:best,w_112/assets/images/30189090/2025/7/1/f1ef6732-ce83-43bc-b576-54772bae61361751352353891-Womanix-Womens-Structured-Handheld-Bag-with-Tasselled-122175-1.jpg",
+          "alt": "",
+          "thumbnail": "https://assets.myntassets.com/f_auto,h_150,q_auto:best,w_112/assets/images/30189090/2025/7/1/f1ef6732-ce83-43bc-b576-54772bae61361751352353891-Womanix-Womens-Structured-Handheld-Bag-with-Tasselled-122175-1.jpg"
+        },
+        {
+          "url": "https://assets.myntassets.com/f_auto,h_150,q_auto:best,w_112/assets/images/30189096/2025/7/1/c212a5d0-aa4e-414c-bcd6-248c42c3902e1751352446221-Womanix-Women-Structured-Shoulder-Bag-5121751352445670-1.jpg",
+          "alt": "",
+          "thumbnail": "https://assets.myntassets.com/f_auto,h_150,q_auto:best,w_112/assets/images/30189096/2025/7/1/c212a5d0-aa4e-414c-bcd6-248c42c3902e1751352446221-Womanix-Women-Structured-Shoulder-Bag-5121751352445670-1.jpg"
+        },
+        {
+          "url": "https://assets.myntassets.com/f_auto,h_150,q_auto:best,w_112/assets/images/30189097/2025/7/1/36f87b1f-f864-4e20-a846-968d36a2a95b1751352453833-Womanix-Structured-Handheld-Bag-5851751352453476-1.jpg",
+          "alt": "",
+          "thumbnail": "https://assets.myntassets.com/f_auto,h_150,q_auto:best,w_112/assets/images/30189097/2025/7/1/36f87b1f-f864-4e20-a846-968d36a2a95b1751352453833-Womanix-Structured-Handheld-Bag-5851751352453476-1.jpg"
+        }
+      ]
+    },
+    {
+      "name": "Fastrack",
+      "price": "₹902",
+      "brand": "Accessories",
+      "category": "Home",
+      "rating": "4.4",
+      "link": "https://www.myntra.com/handbags/fastrack/fastrack-women-laptop-tote-bag-fits-upto-14-laptop/27303916/buy",
+      "images": [
+        {
+          "url": "https://assets.myntassets.com/f_auto,h_150,q_auto:best,w_112/assets/images/27303894/2024/12/24/e4682737-2e73-4774-99e6-bbc7366602701735048769035-Fastrack-Women-Laptop-Tote-Bag-9411735048768387-1.jpg",
+          "alt": "",
+          "thumbnail": "https://assets.myntassets.com/f_auto,h_150,q_auto:best,w_112/assets/images/27303894/2024/12/24/e4682737-2e73-4774-99e6-bbc7366602701735048769035-Fastrack-Women-Laptop-Tote-Bag-9411735048768387-1.jpg"
+        },
+        {
+          "url": "https://assets.myntassets.com/f_auto,h_150,q_auto:best,w_112/assets/images/27303924/2025/2/1/ea902ee9-7074-49ae-98c0-ff31744cd5d21738413566008-Fastrack-Women-Laptop-Tote-Bag-9641738413565649-1.jpg",
+          "alt": "",
+          "thumbnail": "https://assets.myntassets.com/f_auto,h_150,q_auto:best,w_112/assets/images/27303924/2025/2/1/ea902ee9-7074-49ae-98c0-ff31744cd5d21738413566008-Fastrack-Women-Laptop-Tote-Bag-9641738413565649-1.jpg"
+        }
+      ]
+    },
+    {
+      "name": "Allen Solly",
+      "price": "₹1649",
+      "brand": "Accessories",
+      "category": "Home",
+      "rating": "4.4",
+      "link": "https://www.myntra.com/handbags/allen+solly/allen-solly-colourblocked-structured-laptop-handheld-bag/22745228/buy",
+      "images": []
+    }
+  ]
+}

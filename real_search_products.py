@@ -34,7 +34,7 @@ def connect_mongodb():
         username = "hrithick"
         password = "hrimee@0514"
         encoded_password = urllib.parse.quote_plus(password)
-        uri = f"mongodb+srv://{username}:{encoded_password}@goat.kgtnygx.mongodb.net/?retryWrites=true&w=majority&appName=goat"
+        uri = f"mongodb+srv://{username}:{encoded_password}@bilmo.jmeclfh.mongodb.net/?retryWrites=true&w=majority&appName=bilmo"
         
         client = MongoClient(uri)
         db = client["scraper_db"]
