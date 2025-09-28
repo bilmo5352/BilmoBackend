@@ -1,0 +1,47 @@
+{
+  "query": "mouse",
+  "search_url": "https://www.myntra.com/mouse?rawQuery=mouse",
+  "total_products": 8,
+  "products": [
+    {
+      "title": "Portronics Toad 34 Wireless Mouse",
+      "link": "https://www.myntra.com/mouse/portronics/portronics-toad-34-wireless-mouse-with-24-ghz-wireless--adjustable-sensitivity/32674471/buy",
+      "price": "Rs. 279"
+    },
+    {
+      "title": "Portronics Wireless Bluetooth Mouse",
+      "link": "https://www.myntra.com/mouse/portronics/portronics-toad-8-transparent-wireless-bluetooth-mouse-with-dual-wireless/32674404/buy",
+      "price": "Rs. 549"
+    },
+    {
+      "title": "Portronics Toad 7 Wireless Mouse",
+      "link": "https://www.myntra.com/mouse/portronics/portronics-toad-7-wireless-mouse/32642738/buy",
+      "price": "Rs. 439"
+    },
+    {
+      "title": "Arctic Fox Wireless & Bluetooth Mouse",
+      "link": "https://www.myntra.com/mouse/arctic+fox/arctic-fox-transparent-wireless--bluetooth-rechargeable-mouse/32721997/buy",
+      "price": "Rs. 699"
+    },
+    {
+      "title": "Arctic Fox Wireless & Bluetooth Mouse",
+      "link": "https://www.myntra.com/mouse/arctic+fox/arctic-fox-pureview-transparent-wireless--bluetooth-rechargeable-mouse/32722003/buy",
+      "price": "Rs. 699"
+    },
+    {
+      "title": "Portronics Toad One Wireless Mouse",
+      "link": "https://www.myntra.com/mouse/portronics/portronics-toad-one-wireless-mouse/32642740/buy",
+      "price": "Rs. 749"
+    },
+    {
+      "title": "Portronics Wireless Bluetooth Mouse",
+      "link": "https://www.myntra.com/mouse/portronics/portronics-toad-8-transparent-wireless-bluetooth-mouse-with-dual-wireless/32674485/buy",
+      "price": "Rs. 549"
+    },
+    {
+      "title": "Portronics Toad 13 2.4 GHz Wireless Mouse",
+      "link": "https://www.myntra.com/mouse/portronics/portronics-toad-13-24-ghz-wireless-optical-mouse-with-usb-receiver/32719948/buy",
+      "price": "Rs. 349"
+    }
+  ]
+}

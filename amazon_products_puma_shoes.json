@@ -1,0 +1,41 @@
+{
+  "query": "puma shoes",
+  "search_url": "https://www.amazon.in/s?k=puma+shoes&ref=nb_sb_noss",
+  "total_products": 8,
+  "products": [
+    {
+      "price": "1,099",
+      "rating": "8,038",
+      "reviews": "8,038"
+    },
+    {
+      "price": "1,569",
+      "rating": "2,269",
+      "reviews": "2,269"
+    },
+    {
+      "price": "2,439"
+    },
+    {
+      "price": "1,099",
+      "rating": "3,616",
+      "reviews": "3,616"
+    },
+    {
+      "price": "1,299",
+      "rating": "3,998",
+      "reviews": "3,998"
+    },
+    {
+      "price": "1,649",
+      "rating": "40"
+    },
+    {
+      "price": "4,484"
+    },
+    {
+      "price": "1,498",
+      "rating": "382"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "query": "shirt",
+  "search_url": "https://www.myntra.com/shirt?rawQuery=shirt",
+  "total_products": 2,
+  "products": [
+    {
+      "name": "glitchez Poplin Oversized Shirt",
+      "price": "Rs. 659",
+      "brand": "Clothing",
+      "category": "Shirt",
+      "rating": "",
+      "link": "https://www.myntra.com/shirts/glitchez/glitchez-poplin-oversized-shirt/32528990/buy",
+      "images": []
+    },
+    {
+      "name": "Beyoung Casual Shirt",
+      "price": "Rs. 797",
+      "brand": "Clothing",
+      "category": "Shirt",
+      "rating": "",
+      "link": "https://www.myntra.com/shirts/beyoung/beyoung-men-casual-shirt/33976596/buy",
+      "images": []
+    }
+  ]
+}

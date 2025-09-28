@@ -1,0 +1,47 @@
+{
+  "query": "earphones",
+  "search_url": "https://www.myntra.com/earphones?rawQuery=earphones",
+  "total_products": 8,
+  "products": [
+    {
+      "title": "OnePlus Nord Buds 3r Bluetooth Earbuds",
+      "link": "https://www.myntra.com/headphones/oneplus/oneplus-nord-buds-3r-bluetooth-earbuds/36474064/buy",
+      "price": "Rs. 1599"
+    },
+    {
+      "title": "OnePlus Nord Buds 3 Pro With 49dB ANC",
+      "link": "https://www.myntra.com/headphones/oneplus/oneplus-nord-buds-3-pro-with-49db-anc--10mins-fast-charging-earbuds/30119224/buy",
+      "price": "Rs. 2399"
+    },
+    {
+      "title": "Realme T110 Fast Charging Earbuds",
+      "link": "https://www.myntra.com/headphones/realme/realme-buds-t110-fast-charging-earbuds-with-38h-playtime--ai-enc-for-calls----black/30969208/buy",
+      "price": "Rs. 999"
+    },
+    {
+      "title": "Realme T110 Fast Charging Earbuds",
+      "link": "https://www.myntra.com/headphones/realme/realme-buds-t110-fast-charging-earbuds-with-38h-playtime--ai-enc-for-calls----white/30969209/buy",
+      "price": "Rs. 999"
+    },
+    {
+      "title": "OnePlus Nord Buds 3 Pro With 49dB ANC",
+      "link": "https://www.myntra.com/headphones/oneplus/oneplus-nord-buds-3-pro-with-49db-anc--10mins-fast-charging-earbuds/30119225/buy",
+      "price": "Rs. 2399"
+    },
+    {
+      "title": "boAt Airdopes 163 TWS Earbuds",
+      "link": "https://www.myntra.com/headphones/boat/boat-airdopes-163-tws-earbuds-w-50h-playback-enx-tech--13mm-drivers/19597724/buy",
+      "price": "Rs. 799"
+    },
+    {
+      "title": "OnePlus Nord Buds 2r with 38H Playback",
+      "link": "https://www.myntra.com/headphones/oneplus/oneplus-nord-buds-2r-true-124-extra-large-drivers--38h-playback-wireless-in-ear-earbuds/23738230/buy",
+      "price": "Rs. 1399"
+    },
+    {
+      "title": "OnePlus Nord Buds 3r Bluetooth Earbuds",
+      "link": "https://www.myntra.com/headphones/oneplus/oneplus-nord-buds-3r-bluetooth-earbuds/36474065/buy",
+      "price": "Rs. 1599"
+    }
+  ]
+}

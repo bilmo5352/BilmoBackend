@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-commerce Scraper</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🛍️ E-commerce Scraper</h1>
+            <p>Search products across Amazon, Flipkart, Meesho, and Myntra</p>
+        </header>
+
+        <section class="search-section">
+            <form id="searchForm" class="search-form">
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    placeholder="Search for products (e.g., shoes, laptop, phone)..."
+                    class="search-input"
+                    required
+                >
+                <button type="submit" class="search-button" id="searchButton">
+                    <span id="searchIcon">🔍</span>
+                    <span id="searchText">Search</span>
+                </button>
+            </form>
+
+            <div class="platform-buttons">
+                <button class="platform-button active" data-platform="all">All Platforms</button>
+                <button class="platform-button" data-platform="amazon">Amazon</button>
+                <button class="platform-button" data-platform="flipkart">Flipkart</button>
+                <button class="platform-button" data-platform="meesho">Meesho</button>
+                <button class="platform-button" data-platform="myntra">Myntra</button>
+            </div>
+
+            <div id="searchHistory" class="search-history" style="display: none;">
+                <h4>Recent Searches:</h4>
+                <div class="history-buttons"></div>
+            </div>
+        </section>
+
+        <div id="errorMessage" class="error" style="display: none;"></div>
+        <div id="successMessage" class="success" style="display: none;"></div>
+
+        <div id="loadingSection" class="loading" style="display: none;">
+            <div class="loading-spinner"></div>
+            <p>Searching across all platforms...</p>
+            <p class="loading-subtitle">This may take 30-60 seconds as we search Amazon, Flipkart, Meesho, and Myntra</p>
+        </div>
+
+        <section id="resultsSection" class="results-section" style="display: none;">
+            <div class="results-header">
+                <div class="results-count" id="resultsCount"></div>
+                <div class="mongodb-status">Results stored in MongoDB</div>
+            </div>
+
+            <div id="productsGrid" class="products-grid"></div>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
+
+

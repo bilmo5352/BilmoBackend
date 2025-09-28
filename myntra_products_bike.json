@@ -1,0 +1,47 @@
+{
+  "query": "bike",
+  "search_url": "https://www.myntra.com/bike?rawQuery=bike",
+  "total_products": 8,
+  "products": [
+    {
+      "title": "Royal Enfield Bike Toy Vehicles",
+      "link": "https://www.myntra.com/toy-vehicles/royal+enfield/royal-enfield-scale-model-meteor-350-stellar-red/30171912/buy",
+      "price": "Rs. 1750"
+    },
+    {
+      "title": "OPINA Pull Back Bike Toy Vehicles",
+      "link": "https://www.myntra.com/toy-vehicles/opina/opina-114-scale-die-cast-alloy-metal-pull-back-bike-toy-vehicles/32840349/buy",
+      "price": "Rs. 569"
+    },
+    {
+      "title": "ADKD Pull Back Bike Toys Vehicles",
+      "link": "https://www.myntra.com/toy-vehicles/adkd/-adkd-114-scale-die-cast-alloy-pull-back-bike-toys-vehicles/32840473/buy",
+      "price": "Rs. 569"
+    },
+    {
+      "title": "ADKD Die Cast Alloy Metal Bike Toy",
+      "link": "https://www.myntra.com/toy-vehicles/adkd/-adkd-die-cast-alloy-metal-pull-back-bike-toy/32840441/buy",
+      "price": "Rs. 569"
+    },
+    {
+      "title": "PIPALIYA Kids Bike Toy Vehicle",
+      "link": "https://www.myntra.com/toy-vehicles/pipaliya/pipaliya-kids-114-scale-die-cast-pull-back-bike-toys-vehicle/33032121/buy",
+      "price": "Rs. 568"
+    },
+    {
+      "title": "PIPALIYA 1:14 Scale Pull Back Bike Toys",
+      "link": "https://www.myntra.com/toy-vehicles/pipaliya/pipaliya-kids-114-scale-die-cast-alloy-metal-pull-back-bike-toys/33608378/buy",
+      "price": "Rs. 569"
+    },
+    {
+      "title": "DeoDap Unisex Kids Bullet Bike Toy",
+      "link": "https://www.myntra.com/toy-vehicles/deodap/deodap-unisex-kids-black-metal-bullet-bike-toy-with-side-stand/36545091/buy",
+      "price": "Rs. 665"
+    },
+    {
+      "title": "DeoDap Black Metal Bullet Bike Toy",
+      "link": "https://www.myntra.com/toy-vehicles/deodap/deodap-kids-black-metal-bullet-bike-toy-model-with-side-stand/36545092/buy",
+      "price": "Rs. 665"
+    }
+  ]
+}
