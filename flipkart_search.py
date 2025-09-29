@@ -560,14 +560,12 @@ def search_flipkart(query: str, headless: bool = False, max_results: int = 8):
         # Extract product information from search results page (like Meesho)
         products_info = []
         
-        # Try different selectors for product cards (simplified like Meesho)
+        # Try different selectors for product cards (updated for new Flipkart structure)
         product_selectors = [
-            "div._1AtVbE",  # Main product card container
-            "div[data-id]",  # Generic product containers
-            "div._2kHMtA",  # Alternative card selector
-            "div._13oc-S",  # Another card selector
-            "div[class*='product']",  # Generic product selector
-            "div[class*='card']",  # Generic card selector
+            "a.CGtC98",  # Main product link containers (NEW)
+            "div[data-id]",  # Product containers with data-id
+            "div.tUxRFH",  # Product card containers (NEW)
+            "a[href*='/p/']",  # Product links (NEW)
         ]
         
         product_cards = []
@@ -600,83 +598,97 @@ def search_flipkart(query: str, headless: bool = False, max_results: int = 8):
             try:
                 product_info = {}
                 
-                # Extract title from various possible elements (like Meesho approach)
-                title_selectors = [
-                    "div._4rR01T",  # Grid view title
-                    "a.s1Q9rs",     # List view title
-                    "h3.product-brand",  # Brand
-                    "h4.product-product",  # Product name
-                    "a[title]",     # Title attribute
-                    "div[class*='title']",
-                    "span[class*='title']",
-                    "a",            # Any link
-                    "div[class*='_4rR01T']",  # Alternative grid title
-                    "span[class*='_4rR01T']", # Alternative grid title
-                    "h3",           # Heading tags
-                    "h2",           # Heading tags
-                    "h1",           # Heading tags
-                    "span._2mylT6", # Alternative title class
-                    "div._2mylT6",  # Alternative title class
-                    "span[class*='_2mylT6']", # Alternative title class
-                    "div[class*='_2mylT6']",  # Alternative title class
-                ]
+                # Extract title from card text - the product name is on line 2
+                card_text = card.text.strip()
+                lines = card_text.split('\n')
                 
-                brand = ""
-                product_name = ""
-                full_title = ""
+                # Line 1: "Add to Compare" (skip)
+                # Line 2: Product name (this is what we want)
+                # Line 3: Ratings
+                # Line 4+: Specifications
                 
-                for selector in title_selectors:
+                if len(lines) >= 2:
+                    potential_title = lines[1].strip()
+                    if (potential_title and len(potential_title) > 10 and 
+                        not potential_title.startswith('₹') and 
+                        not potential_title.endswith('%') and
+                        'rating' not in potential_title.lower() and
+                        'review' not in potential_title.lower()):
+                        product_info['title'] = potential_title
+                
+                # Extract brand from title if we have one
+                if product_info.get('title'):
+                    title = product_info['title']
+                    # Enhanced brand list including common laptop/electronics brands
+                    common_brands = [
+                        # Electronics/Laptop brands
+                        "HP", "Dell", "Lenovo", "Asus", "ASUS", "Acer", "MSI", "Apple", "Samsung", "Sony", "LG", 
+                        "Toshiba", "Fujitsu", "Alienware", "Razer", "Microsoft", "Surface", "Huawei", "Honor",
+                        "Xiaomi", "Realme", "OnePlus", "Oppo", "Vivo", "Motorola", "Nokia", "Google", "Nothing",
+                        "JBL", "Boat", "Sennheiser", "Philips", "Panasonic", "Canon", "Nikon", "Flipkart",
+                        # Clothing brands  
+                        "Arrow", "Van Heusen", "Peter England", "Louis Philippe", "Allen Solly", "Park Avenue",
+                        "Nike", "Adidas", "Puma", "Reebok", "Converse", "Levi's", "Tommy Hilfiger", "Calvin Klein"
+                    ]
+                    for brand in common_brands:
+                        if brand.lower() in title.lower():
+                            product_info['brand'] = brand
+                            break
+                    
+                    # If no brand found, try first word
+                    if not product_info.get('brand'):
+                        title_words = title.split()
+                        if title_words and len(title_words[0]) > 2:
+                            product_info['brand'] = title_words[0]
+                
+                # If title is "Add to Compare" or similar, try to get from image alt text
+                if (not product_info.get('title') or 
+                    product_info.get('title') in ['Add to Compare', 'View Product', 'Bestseller', 'Compare']):
                     try:
-                        title_elem = card.find_element(By.CSS_SELECTOR, selector)
-                        title_text = title_elem.text.strip()
-                        # Skip discount percentages and other non-product names (like Meesho)
-                        if (title_text and len(title_text) > 5 and len(title_text) < 200 and
-                            not title_text.endswith('%') and
-                            not title_text.endswith('off') and
-                            not title_text.startswith('%') and
-                            'off' not in title_text.lower() and
-                            not title_text.replace('%', '').replace('off', '').strip().isdigit()):
-                            
-                            if selector == "h3.product-brand":
-                                brand = title_text
-                            elif selector == "h4.product-product":
-                                product_name = title_text
-                            else:
-                                if not full_title:
-                                    full_title = title_text
-                                    # Try to get link from the element or its parent
-                                    try:
-                                        if title_elem.tag_name == 'a':
-                                            product_info['link'] = title_elem.get_attribute('href') or ''
-                                        else:
-                                            # Try to find a parent link
-                                            parent_link = title_elem.find_element(By.XPATH, "./ancestor::a")
-                                            if parent_link:
-                                                product_info['link'] = parent_link.get_attribute('href') or ''
-                                    except:
-                                        pass
+                        img_elem = card.find_element(By.TAG_NAME, "img")
+                        img_alt = img_elem.get_attribute('alt') or ''
+                        if img_alt and len(img_alt) > 10:
+                            # Clean up the alt text to get just the product name
+                            product_name = img_alt.split(' - ')[0].strip()  # Take first part before dash
+                            if product_name and len(product_name) > 5:
+                                product_info['title'] = product_name
+                                # Re-extract brand from new title
+                                title = product_info['title']
+                                common_brands = [
+                                    "HP", "Dell", "Lenovo", "Asus", "ASUS", "Acer", "MSI", "Apple", "Samsung", "Sony", "LG", 
+                                    "Toshiba", "Fujitsu", "Alienware", "Razer", "Microsoft", "Surface", "Huawei", "Honor",
+                                    "Xiaomi", "Realme", "OnePlus", "Oppo", "Vivo", "Motorola", "Nokia", "Google", "Nothing"
+                                ]
+                                for brand in common_brands:
+                                    if brand.lower() in title.lower():
+                                        product_info['brand'] = brand
+                                        break
+                                
+                                # If no brand found, try first word
+                                if not product_info.get('brand') or product_info.get('brand') == 'Add':
+                                    title_words = title.split()
+                                    if title_words and len(title_words[0]) > 2:
+                                        product_info['brand'] = title_words[0]
                     except:
-                        continue
+                        pass
                 
-                # Smart title combination
-                if brand and product_name:
-                    product_info['title'] = f"{brand} {product_name}"
-                elif brand and full_title:
-                    # If we have brand and full title, combine them intelligently
-                    if brand.lower() not in full_title.lower():
-                        product_info['title'] = f"{brand} {full_title}"
-                    else:
-                        product_info['title'] = full_title
-                elif product_name:
-                    product_info['title'] = product_name
-                elif full_title:
-                    product_info['title'] = full_title
+                # If still no title, try to extract from link URL (Flipkart URLs contain product names)
+                if not product_info.get('title'):
+                    try:
+                        link = product_info.get('link', '')
+                        if link and '/p/' in link:
+                            # Extract product name from URL path
+                            url_parts = link.split('/p/')
+                            if len(url_parts) > 1:
+                                product_slug = url_parts[1].split('/')[0]
+                                # Convert slug to readable name
+                                product_name = product_slug.replace('-', ' ').title()
+                                if product_name and len(product_name) > 5:
+                                    product_info['title'] = product_name
+                    except:
+                        pass
                 
-                # Store brand separately for easier access
-                if brand:
-                    product_info['brand'] = brand
-                
-                # If no title found, try to get it from the card's text content (like Meesho)
+                # If still no title found, try to get it from the card's text content (like Meesho)
                 if not product_info.get('title'):
                     try:
                         card_text = card.text.strip()
@@ -695,88 +707,41 @@ def search_flipkart(query: str, headless: bool = False, max_results: int = 8):
                                 'rating' not in line.lower() and
                                 'free' not in line.lower() and
                                 ':' not in line and  # Skip time formats
-                                not line.replace(':', '').replace('h', '').replace('m', '').replace('s', '').replace(' ', '').isdigit()):
+                                not line.replace(':', '').replace('h', '').replace('m', '').replace('s', '').replace(' ', '').isdigit() and
+                                line not in ['Bestseller', 'Add to Compare', 'View Product', 'Currently unavailable', 'Out of stock', 'Not available']):  # Skip common UI text
                                 product_info['title'] = line
                                 break
                     except:
                         pass
                 
-                # Extract price from various possible elements (simplified like Meesho)
-                price_selectors = [
-                    "div._30jeq3",  # Main price
-                    "div[class*='_30jeq3']",
-                    "span[class*='_30jeq3']",
-                    "div[class*='_25b18c']",  # Alternative price selector
-                    "span[class*='_25b18c']", # Alternative price selector
-                    "div[class*='_16Jk6d']", # Another price selector
-                    "span[class*='_16Jk6d']", # Another price selector
-                    "div[class*='_1vC4OE']", # Another price selector
-                    "span[class*='_1vC4OE']", # Another price selector
-                    "div[class*='price']",
-                    "span[class*='price']",
-                ]
-                
-                for selector in price_selectors:
-                    try:
-                        price_elem = card.find_element(By.CSS_SELECTOR, selector)
-                        price_text = price_elem.text.strip()
-                        if price_text and ('₹' in price_text or 'Rs' in price_text or 'INR' in price_text):
-                            product_info['price'] = price_text
-                            break
-                    except:
-                        continue
-                
-                # If no price found, try to extract from card text (like Meesho)
+                # Extract price from card text - it's usually near the end
                 if not product_info.get('price'):
                     try:
-                        card_text = card.text.strip()
-                        lines = card_text.split('\n')
                         for line in lines:
                             line = line.strip()
                             if line.startswith('₹') and len(line) < 20:
-                                product_info['price'] = line
+                                # Clean up price (remove extra text)
+                                price = line.split()[0] if line.split() else line
+                                product_info['price'] = price
                                 break
                     except:
                         pass
                 
-                # Extract rating from various possible elements (simplified like Meesho)
-                rating_selectors = [
-                    "div._3LWZlK",  # Rating stars
-                    "span[class*='rating']",
-                    "div[class*='rating']",
-                    "span[class*='_3LWZlK']",
-                    "div[class*='_3LWZlK']",
-                    "div[class*='_2d4LTz']", # Alternative rating selector
-                    "span[class*='_2d4LTz']", # Alternative rating selector
-                    "div[class*='_3uSWvM']", # Another rating selector
-                    "span[class*='_3uSWvM']", # Another rating selector
-                    "div[class*='_1i0wkb']", # New Flipkart rating selector
-                    "span[class*='_1i0wkb']"
-                ]
-                
-                for selector in rating_selectors:
-                    try:
-                        rating_elem = card.find_element(By.CSS_SELECTOR, selector)
-                        rating_text = rating_elem.text.strip()
-                        # Enhanced validation for ratings
-                        if rating_text and len(rating_text) > 0:
-                            import re
-                            if re.match(r'^\d+(\.\d+)?$', rating_text) and float(rating_text) <= 5.0:
-                                product_info['rating'] = rating_text
-                                break
-                    except:
-                        continue
-                
-                # If no rating found, try to extract from card text (like Meesho)
+                # Extract rating from card text - look for rating format like "4.149 Ratings & 3 Reviews"
                 if not product_info.get('rating'):
                     try:
-                        card_text = card.text.strip()
-                        lines = card_text.split('\n')
                         for line in lines:
                             line = line.strip()
-                            if line.replace('.', '').isdigit() and len(line) <= 4 and float(line) <= 5.0:
-                                product_info['rating'] = line
-                                break
+                            if 'rating' in line.lower() and 'review' in line.lower():
+                                # Extract the rating number (e.g., "4.1" from "4.149 Ratings & 3 Reviews")
+                                import re
+                                rating_match = re.search(r'(\d+\.?\d*)', line)
+                                if rating_match:
+                                    rating = rating_match.group(1)
+                                    if float(rating) <= 5.0:
+                                        product_info['rating'] = rating
+                                        product_info['reviews_count'] = line
+                                        break
                     except:
                         pass
                 
@@ -789,7 +754,7 @@ def search_flipkart(query: str, headless: bool = False, max_results: int = 8):
                     product_info['image_url'] = ''
                     product_info['image_alt'] = ''
                 
-                # Extract product link - the card itself might be the link (like Meesho)
+                # Extract product link - the card itself might be the link
                 if not product_info.get('link'):
                     try:
                         # Check if the card element itself is an anchor tag

@@ -1,0 +1,25 @@
+{
+  "query": "playstation 5",
+  "search_url": "https://www.myntra.com/playstation-5?rawQuery=playstation%205",
+  "total_products": 2,
+  "products": [
+    {
+      "name": "YUV Kids Printed Applique T-shirt",
+      "price": "Rs. 407",
+      "brand": "Clothing",
+      "category": "Shirt",
+      "rating": "4.8",
+      "link": "https://www.myntra.com/tshirts/yuv/yuv-kids-5-printed-applique-t-shirt/32741059/buy",
+      "images": []
+    },
+    {
+      "name": "Kiddeo Girls Pack of 5 Pure Cotton T-shirts",
+      "price": "Rs. 459",
+      "brand": "Clothing",
+      "category": "Shirt",
+      "rating": "",
+      "link": "https://www.myntra.com/tshirts/kiddeo/kiddeo-girls-pack-of-5-multicoloured-printed-round-neck-pure-cotton-t-shirts/11114004/buy",
+      "images": []
+    }
+  ]
+}

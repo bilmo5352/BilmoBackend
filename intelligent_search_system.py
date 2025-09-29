@@ -122,12 +122,14 @@ class IntelligentSearchSystem:
                 if products and isinstance(products, dict):
                     # Handle different return formats
                     if 'basic_products' in products:
-                        # Handle Meesho's structure with basic_products and detailed_products
+                        # Handle Amazon and Meesho's structure with basic_products and detailed_products
+                        basic_products = products.get('basic_products', [])
                         platform_result = {
                             "site": platform_name,
                             "query": query,
-                            "total_products": len(products.get('basic_products', [])),
-                            "basic_products": products.get('basic_products', []),
+                            "total_products": len(basic_products),
+                            "products": basic_products,  # Map basic_products to products for API compatibility
+                            "basic_products": basic_products,
                             "detailed_products": products.get('detailed_products', [])
                         }
                     elif 'products' in products:

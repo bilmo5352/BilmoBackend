@@ -1,0 +1,25 @@
+{
+  "query": "beer",
+  "search_url": "https://www.myntra.com/beer?rawQuery=beer",
+  "total_products": 2,
+  "products": [
+    {
+      "name": "Park Avenue Shiny & Bouncy Beer Shampoo",
+      "price": "Rs. 335",
+      "brand": "Clothing",
+      "category": "Shirt",
+      "rating": "",
+      "link": "https://www.myntra.com/shampoo/park+avenue/park-avenue-paraben-free-shiny--bouncy-hair-beer-shampoo-with-barley-650-ml/16687126/buy",
+      "images": []
+    },
+    {
+      "name": "Park Avenue Damage Free Beer Shampoo",
+      "price": "Rs. 335",
+      "brand": "Clothing",
+      "category": "Shirt",
+      "rating": "",
+      "link": "https://www.myntra.com/shampoo/park+avenue/park-avenue-damage-free-beer-shampoo---650-ml/16687136/buy",
+      "images": []
+    }
+  ]
+}

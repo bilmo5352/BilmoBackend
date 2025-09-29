@@ -1,0 +1,25 @@
+{
+  "query": "charger",
+  "search_url": "https://www.myntra.com/charger?rawQuery=charger",
+  "total_products": 2,
+  "products": [
+    {
+      "name": "Ambrane RAAP H11 Mobile Charger",
+      "price": "Rs. 399",
+      "brand": "Clothing",
+      "category": "Shirt",
+      "rating": "",
+      "link": "https://www.myntra.com/charger/ambrane/ambrane-raap-h11-20w-type-c---usb-mobile-charger/33222687/buy",
+      "images": []
+    },
+    {
+      "name": "Ambrane Charge 20 Charger Adapter",
+      "price": "Rs. 499",
+      "brand": "Clothing",
+      "category": "Shirt",
+      "rating": "4.0",
+      "link": "https://www.myntra.com/charger/ambrane/ambrane-charge-20-type-c-20w-mobile-charger-adapter/33222666/buy",
+      "images": []
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "query": "iphone 16 pro max",
+  "search_url": "https://www.myntra.com/iphone-16-pro-max?rawQuery=iphone%2016%20pro%20max",
+  "total_products": 2,
+  "products": [
+    {
+      "name": "DailyObjects iPhone 16 Pro Max Back Case",
+      "price": "Rs. 999",
+      "brand": "Clothing",
+      "category": "Shirt",
+      "rating": "4.3",
+      "link": "https://www.myntra.com/mobile-accessories/dailyobjects/dailyobjects-unisex-solid-magsafe-flekt-silicone-iphone-16-pro-max-back-case/32498797/buy",
+      "images": []
+    },
+    {
+      "name": "DailyObjects iPhone 16 Pro Max Back Case",
+      "price": "Rs. 899",
+      "brand": "Clothing",
+      "category": "Shirt",
+      "rating": "5",
+      "link": "https://www.myntra.com/mobile-accessories/dailyobjects/dailyobjects-stride-20-clear-iphone-16-pro-max-back-case/32499232/buy",
+      "images": []
+    }
+  ]
+}

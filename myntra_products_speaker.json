@@ -1,0 +1,47 @@
+{
+  "query": "speaker",
+  "search_url": "https://www.myntra.com/speaker?rawQuery=speaker",
+  "total_products": 8,
+  "products": [
+    {
+      "title": "Portronics Portable Bluetooth Speaker",
+      "link": "https://www.myntra.com/speakers/portronics/-portronics-fynix-30w-hd-sound-portable-bluetooth-speaker/33730788/buy",
+      "price": "Rs. 2599"
+    },
+    {
+      "title": "BLAUPUNKT 20W Wireless PA Speaker",
+      "link": "https://www.myntra.com/speakers/blaupunkt/blaupunkt-atomik-grab-20-w-wireless-bluetooth-pa-speaker/31505306/buy",
+      "price": "Rs. 949"
+    },
+    {
+      "title": "JBL Charge 5 Wifi & BT Speaker",
+      "link": "https://www.myntra.com/speakers/jbl/jbl-charge-5-wifi-20h-playtime-built-in-powerbank-ip67-water-proof-40w-bluetooth-speaker/26379016/buy",
+      "price": "Rs. 14999"
+    },
+    {
+      "title": "Portronics Portable Bluetooth Speaker",
+      "link": "https://www.myntra.com/speakers/portronics/portronics-nova-40w-portable-bluetooth-speaker/33730790/buy",
+      "price": "Rs. 2599"
+    },
+    {
+      "title": "Portronics Iron Beats Wireless Speaker",
+      "link": "https://www.myntra.com/speakers/portronics/portronics-iron-beats-250w-wireless-speaker-with-karaoke-mic/30156343/buy",
+      "price": "Rs. 12999"
+    },
+    {
+      "title": "JBL GO4 Ultra - Portable Speakers",
+      "link": "https://www.myntra.com/speakers/jbl/jbl-go-4-black--orange-ultra-portable-water--dust-proof-42-w-bluetooth-speaker/31785650/buy",
+      "price": "Rs. 2999"
+    },
+    {
+      "title": "boAt Stone Uno Wireless Speaker",
+      "link": "https://www.myntra.com/speakers/boat/boat-stone-uno-up-to-6-hours-of-playtime-bluetooth-v54-wireless-speaker/33792713/buy",
+      "price": "Rs. 649"
+    },
+    {
+      "title": "BLAUPUNKT RGB Lights & Wireless Speakers",
+      "link": "https://www.myntra.com/speakers/blaupunkt/blaupunkt-atomik-knightz-100-w-bluetooth-party-speaker-with-rgb-lights--wireless-mic/32199856/buy",
+      "price": "Rs. 11499"
+    }
+  ]
+}

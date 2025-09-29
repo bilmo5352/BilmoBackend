@@ -1,0 +1,47 @@
+{
+  "query": "pant",
+  "search_url": "https://www.myntra.com/pant?rawQuery=pant",
+  "total_products": 8,
+  "products": [
+    {
+      "title": "Roadster Relaxed Fit Cargo Trousers",
+      "link": "https://www.myntra.com/trousers/roadster/the-roadster-lifestyle-co-relaxed-fit-cotton-cargo-trousers/30084795/buy",
+      "price": "Rs. 699"
+    },
+    {
+      "title": "Roadster Relaxed-Fit Regular Trousers",
+      "link": "https://www.myntra.com/trousers/roadster/the-roadster-lifestyle-co-linen-relaxed-fit-regular-trousers/30063129/buy",
+      "price": "Rs. 699"
+    },
+    {
+      "title": "BRUTE FORCE Men Mid-Rise Track Pant",
+      "link": "https://www.myntra.com/track-pants/brute+force/brute-force-men-mid-rise-high-performance-track-pant/35886879/buy",
+      "price": "Rs. 989"
+    },
+    {
+      "title": "BRUTE FORCE Men Mid-Rise Track Pant",
+      "link": "https://www.myntra.com/track-pants/brute+force/brute-force-men-mid-rise-high-performance-track-pant/35886880/buy",
+      "price": "Rs. 989"
+    },
+    {
+      "title": "Mast & Harbour Men Regular Fit Mid-Rise Jeans",
+      "link": "https://www.myntra.com/jeans/mast+%26+harbour/mast--harbour-men-regular-fit-mid-rise-light-fade-jeans/33585251/buy",
+      "price": "Rs. 1188"
+    },
+    {
+      "title": "TWIN BIRDS Textured Cotton Night Pant",
+      "link": "https://www.myntra.com/lounge-pants/twin+birds/twin-birds-women-rosy-brown-textured-cotton-night-pant/34299351/buy",
+      "price": "Rs. 799"
+    },
+    {
+      "title": "Shiv Naresh Mid Rise Tricot Track Pant",
+      "link": "https://www.myntra.com/track-pants/shiv+naresh/shiv-naresh-men-mid-rise-tricot-track-pant/36904261/buy",
+      "price": "Rs. 899"
+    },
+    {
+      "title": "Roadster Men Relaxed Fit Trousers",
+      "link": "https://www.myntra.com/trousers/roadster/the-roadster-lifestyle-co-men-relaxed-fit-mid-rise-trousers/31744867/buy",
+      "price": "Rs. 699"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "query": "speaker",
+  "search_url": "https://www.myntra.com/speaker?rawQuery=speaker",
+  "total_products": 2,
+  "products": [
+    {
+      "name": "Portronics Portable Bluetooth Speaker",
+      "price": "Rs. 2599",
+      "brand": "Clothing",
+      "category": "Shirt",
+      "rating": "",
+      "link": "https://www.myntra.com/speakers/portronics/-portronics-fynix-30w-hd-sound-portable-bluetooth-speaker/33730788/buy",
+      "images": []
+    },
+    {
+      "name": "BLAUPUNKT 20W Wireless PA Speaker",
+      "price": "Rs. 949",
+      "brand": "Clothing",
+      "category": "Shirt",
+      "rating": "",
+      "link": "https://www.myntra.com/speakers/blaupunkt/blaupunkt-atomik-grab-20-w-wireless-bluetooth-pa-speaker/31505306/buy",
+      "images": []
+    }
+  ]
+}

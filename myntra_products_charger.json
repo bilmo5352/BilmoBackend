@@ -1,0 +1,47 @@
+{
+  "query": "charger",
+  "search_url": "https://www.myntra.com/charger?rawQuery=charger",
+  "total_products": 8,
+  "products": [
+    {
+      "title": "Ambrane RAAP H11 Mobile Charger",
+      "link": "https://www.myntra.com/charger/ambrane/ambrane-raap-h11-20w-type-c---usb-mobile-charger/33222687/buy",
+      "price": "Rs. 399"
+    },
+    {
+      "title": "Ambrane Charge 20 Charger Adapter",
+      "link": "https://www.myntra.com/charger/ambrane/ambrane-charge-20-type-c-20w-mobile-charger-adapter/33222666/buy",
+      "price": "Rs. 499"
+    },
+    {
+      "title": "CMF by Nothing 65W GAN Charger",
+      "link": "https://www.myntra.com/charger/cmf+by+nothing/cmf-by-nothing-65-w-gan-3-a-3-port-mobile-charger/27744210/buy",
+      "price": "Rs. 1699"
+    },
+    {
+      "title": "CMF by Nothing Power 33W Charger",
+      "link": "https://www.myntra.com/charger/cmf+by+nothing/cmf-by-nothing-33-w-quick-charge-3-a-wall-charger-for-mobile/30119350/buy",
+      "price": "Rs. 799"
+    },
+    {
+      "title": "Ambrane Charge 67 Dual Port Charger",
+      "link": "https://www.myntra.com/charger/ambrane/ambrane-charge-67-dual-port-gan-67w-charger-/33222684/buy",
+      "price": "Rs. 1399"
+    },
+    {
+      "title": "Ambrane AerosyncQ Charger",
+      "link": "https://www.myntra.com/charger/ambrane/ambrane-15w-qi-2--magsafe-with-60w-type-c--wireless-charger/33222677/buy",
+      "price": "Rs. 999"
+    },
+    {
+      "title": "Portronics 100W Adapto 100 Fast Charger",
+      "link": "https://www.myntra.com/charger/portronics/portronics-100w-adapto-100-gan-fast-charging-triple-port-adaptor-with-type-c-cable/32962858/buy",
+      "price": "Rs. 2699"
+    },
+    {
+      "title": "Ambrane Charge 45 Charger Adapter",
+      "link": "https://www.myntra.com/charger/ambrane/ambrane-charge-45-45w-type-c-mobile-charger-adapter/33222691/buy",
+      "price": "Rs. 999"
+    }
+  ]
+}

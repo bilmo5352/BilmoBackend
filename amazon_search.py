@@ -26,6 +26,8 @@ def create_driver(headless: bool = False) -> webdriver.Chrome:
     if headless:
         chrome_options.add_argument("--headless=new")
         chrome_options.add_argument("--window-size=1920,1080")
+    
+    # Enhanced anti-detection measures
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
@@ -33,8 +35,27 @@ def create_driver(headless: bool = False) -> webdriver.Chrome:
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
     chrome_options.add_argument("--disable-web-security")
     chrome_options.add_argument("--enable-unsafe-swiftshader")
+    chrome_options.add_argument("--disable-features=VizDisplayCompositor")
+    chrome_options.add_argument("--disable-ipc-flooding-protection")
+    chrome_options.add_argument("--disable-renderer-backgrounding")
+    chrome_options.add_argument("--disable-backgrounding-occluded-windows")
+    chrome_options.add_argument("--disable-client-side-phishing-detection")
+    chrome_options.add_argument("--disable-sync")
+    chrome_options.add_argument("--disable-default-apps")
+    chrome_options.add_argument("--disable-hang-monitor")
+    chrome_options.add_argument("--disable-prompt-on-repost")
+    chrome_options.add_argument("--disable-domain-reliability")
+    chrome_options.add_argument("--disable-component-extensions-with-background-pages")
+    chrome_options.add_argument("--disable-background-timer-throttling")
+    chrome_options.add_argument("--disable-backgrounding-occluded-windows")
+    chrome_options.add_argument("--disable-renderer-backgrounding")
+    chrome_options.add_argument("--disable-features=TranslateUI")
+    chrome_options.add_argument("--disable-ipc-flooding-protection")
+    chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+    
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option('useAutomationExtension', False)
+    chrome_options.add_experimental_option("detach", True)
     
     try:
         # Try with ChromeDriverManager first
@@ -51,9 +72,16 @@ def create_driver(headless: bool = False) -> webdriver.Chrome:
             print(f"All ChromeDriver methods failed: {e2}")
             raise e2
     
-    # Execute JavaScript to remove webdriver properties
+    # Execute JavaScript to remove webdriver properties and enhance stealth
     driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
     driver.execute_script("delete navigator.__proto__.webdriver")
+    driver.execute_script("Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]})")
+    driver.execute_script("Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en']})")
+    driver.execute_script("Object.defineProperty(navigator, 'permissions', {get: () => ({query: () => Promise.resolve({state: 'granted'})})})")
+    driver.execute_script("window.chrome = {runtime: {}}")
+    driver.execute_script("Object.defineProperty(navigator, 'platform', {get: () => 'Win32'})")
+    driver.execute_script("Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 4})")
+    driver.execute_script("Object.defineProperty(navigator, 'deviceMemory', {get: () => 8})")
     
     return driver
 
@@ -568,14 +596,29 @@ def search_amazon(query: str, headless: bool = False, max_results: int = 8):
     try:
         print(f"Searching Amazon for: {query}")
         
-        # Navigate directly to search URL (like Meesho approach)
+        # First visit Amazon homepage to establish session
+        print("Visiting Amazon homepage first...")
+        driver.get("https://www.amazon.in")
+        time.sleep(3)
+        
+        # Navigate to search URL
         search_url = f"https://www.amazon.in/s?k={query.replace(' ', '+')}"
+        print(f"Navigating to search URL: {search_url}")
         driver.get(search_url)
-        time.sleep(5)
+        time.sleep(8)
 
         # Wait for search results to load
         print("Waiting for search results to load...")
-        time.sleep(5)
+        time.sleep(8)
+        
+        # Check if we got blocked
+        if "503" in driver.title or "Service Unavailable" in driver.page_source:
+            print("⚠️ Got 503 error, trying alternative approach...")
+            # Try with different user agent and retry
+            driver.execute_script("Object.defineProperty(navigator, 'userAgent', {get: () => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'})")
+            time.sleep(2)
+            driver.get(search_url)
+            time.sleep(8)
         
         # Save the HTML content of the search results page
         html_content = driver.page_source

@@ -1,0 +1,25 @@
+{
+  "query": "pant",
+  "search_url": "https://www.myntra.com/pant?rawQuery=pant",
+  "total_products": 2,
+  "products": [
+    {
+      "name": "Roadster Relaxed Fit Cargo Trousers",
+      "price": "Rs. 699",
+      "brand": "Clothing",
+      "category": "Shirt",
+      "rating": "",
+      "link": "https://www.myntra.com/trousers/roadster/the-roadster-lifestyle-co-relaxed-fit-cotton-cargo-trousers/30084795/buy",
+      "images": []
+    },
+    {
+      "name": "Roadster Relaxed-Fit Regular Trousers",
+      "price": "Rs. 699",
+      "brand": "Clothing",
+      "category": "Shirt",
+      "rating": "",
+      "link": "https://www.myntra.com/trousers/roadster/the-roadster-lifestyle-co-linen-relaxed-fit-regular-trousers/30063129/buy",
+      "images": []
+    }
+  ]
+}

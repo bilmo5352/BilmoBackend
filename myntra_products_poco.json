@@ -1,0 +1,47 @@
+{
+  "query": "poco",
+  "search_url": "https://www.myntra.com/poco?rawQuery=poco",
+  "total_products": 8,
+  "products": [
+    {
+      "title": "QRIOH Poco X7 Pro 5G Back Case",
+      "link": "https://www.myntra.com/mobile-accessories/qrioh/qrioh-printed-poco-x7-pro-5g-back-case-mobile-accessories/35466098/buy",
+      "price": "Rs. 499"
+    },
+    {
+      "title": "QRIOH Poco F6 5G Back Case",
+      "link": "https://www.myntra.com/mobile-accessories/qrioh/qrioh-printed-poco-f6-5g-back-modern-white-marble-glass-case-mobile-accessories/33770512/buy",
+      "price": "Rs. 499"
+    },
+    {
+      "title": "QRIOH Poco F6 5G Back Case Mobile Accessories",
+      "link": "https://www.myntra.com/mobile-accessories/qrioh/qrioh-typography-printed-poco-f6-5g-back-case-mobile-accessories/33770539/buy",
+      "price": "Rs. 499"
+    },
+    {
+      "title": "QRIOH Poco F6 5G Back Case Mobile Accessories",
+      "link": "https://www.myntra.com/mobile-accessories/qrioh/qrioh-floral-printed-poco-f6-5g-back-case-mobile-accessories/33770529/buy",
+      "price": "Rs. 499"
+    },
+    {
+      "title": "SPRIG Xiaomi POCO X7 Pro Back Cover",
+      "link": "https://www.myntra.com/mobile-accessories/sprig/sprig-xiaomi-poco-x7-pro-tpu-matte-back-cover/34630495/buy",
+      "price": "Rs. 499"
+    },
+    {
+      "title": "QRIOH Poco X7 Pro 5G Back Case",
+      "link": "https://www.myntra.com/mobile-accessories/qrioh/qrioh-silicone-poco-x7-pro-5g-back-case-mobile-accessories/35466313/buy",
+      "price": "Rs. 499"
+    },
+    {
+      "title": "QRIOH Poco X7 Pro 5G Back Case",
+      "link": "https://www.myntra.com/mobile-accessories/qrioh/qrioh-vertical-blue-arrow-printed-poco-x7-pro-5g-glass-back-case/35466251/buy",
+      "price": "Rs. 499"
+    },
+    {
+      "title": "QRIOH Back Case Mobile Accessories",
+      "link": "https://www.myntra.com/mobile-accessories/qrioh/qrioh-quirky-printed-poco-x7-pro-5g-back-case-mobile-accessories/35466205/buy",
+      "price": "Rs. 499"
+    }
+  ]
+}
