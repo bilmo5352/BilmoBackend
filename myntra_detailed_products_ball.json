@@ -1,0 +1,20 @@
+{
+  "products": [
+    {
+      "title": "CULT",
+      "name": "CULT",
+      "price": "Rs. 397",
+      "link": "https://www.myntra.com/footballs/cult/cult-printed-water-resistant-footballs/35737041/buy",
+      "rating": "1.5",
+      "image_url": "https://assets.myntassets.com/dpr_2,q_60,w_210,c_limit,fl_progressive/assets/images/2025/JULY/16/ENkWWN3X_fdf64195c3494ae19af867e4c0753df5.jpg",
+      "image_alt": "CULT Printed Water Resistant Footballs",
+      "images": [
+        {
+          "url": "https://assets.myntassets.com/dpr_2,q_60,w_210,c_limit,fl_progressive/assets/images/2025/JULY/16/ENkWWN3X_fdf64195c3494ae19af867e4c0753df5.jpg",
+          "alt": "CULT Printed Water Resistant Footballs",
+          "thumbnail": "https://assets.myntassets.com/dpr_2,q_60,w_210,c_limit,fl_progressive/assets/images/2025/JULY/16/ENkWWN3X_fdf64195c3494ae19af867e4c0753df5.jpg"
+        }
+      ]
+    }
+  ]
+}

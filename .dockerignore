@@ -1,35 +1,33 @@
-# Git
-.git
-.gitignore
-
-# Python
+# Python cache
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
 
 # Virtual environments
-venv/
 env/
+venv/
 ENV/
 env.bak/
 venv.bak/
+.venv/
+
+# Testing
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+test_*.py
+*_test.py
+tests/
 
 # IDE
 .vscode/
@@ -37,8 +35,33 @@ venv.bak/
 *.swp
 *.swo
 *~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
 
-# OS
+# Logs
+*.log
+logs/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+*.md
+
+# Documentation
+README*.md
+DOCKER*.md
+DEPLOYMENT*.md
+
+# OS files
 .DS_Store
 .DS_Store?
 ._*
@@ -46,36 +69,34 @@ venv.bak/
 .Trashes
 ehthumbs.db
 Thumbs.db
+desktop.ini
 
-# Logs
-*.log
-logs/
-
-# HTML files (will be generated at runtime)
+# HTML output files (will be generated in container)
 *.html
+html_files/
 
-# JSON files (will be generated at runtime)
+# JSON output files (will be generated)
 *.json
 
-# Docker
-Dockerfile
-docker-compose.yml
-.dockerignore
-
-# Documentation
-README*.md
-*.md
-
-# Test files
-test_*.py
-*_test.py
+# Deployment scripts
+*.bat
+*.sh
+deploy*
+docker_*
 
 # Temporary files
-tmp/
+*.tmp
+*.temp
 temp/
+tmp/
 
+# Node modules (if any)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-
-
-
-
+# Frontend build files (if separate)
+frontend/node_modules/
+frontend/build/
+frontend/dist/

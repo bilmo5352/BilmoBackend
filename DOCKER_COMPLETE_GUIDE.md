@@ -123,3 +123,4 @@ docker-compose --profile mongodb up -d
 - **Security:** Non-root user with proper capabilities
 - **Persistence:** HTML files and logs mounted as volumes
 - **Health Checks:** Automatic monitoring every 30 seconds
+

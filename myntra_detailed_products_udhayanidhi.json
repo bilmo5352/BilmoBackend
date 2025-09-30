@@ -1,0 +1,20 @@
+{
+  "products": [
+    {
+      "title": "K 5 Fashion",
+      "name": "K 5 Fashion",
+      "price": "Rs. 1499",
+      "link": "https://www.myntra.com/sarees/k+5+fashion/k-5-fashion-embroidered-pure-chiffon-saree/34213287/buy",
+      "rating": "1.5",
+      "image_url": "https://assets.myntassets.com/dpr_2,q_60,w_210,c_limit,fl_progressive/assets/images/2025/MAY/16/V58jZehY_74b2e973b5e34ade8d98e21fd0aa112d.jpg",
+      "image_alt": "K 5 Fashion Embroidered Pure Chiffon Saree",
+      "images": [
+        {
+          "url": "https://assets.myntassets.com/dpr_2,q_60,w_210,c_limit,fl_progressive/assets/images/2025/MAY/16/V58jZehY_74b2e973b5e34ade8d98e21fd0aa112d.jpg",
+          "alt": "K 5 Fashion Embroidered Pure Chiffon Saree",
+          "thumbnail": "https://assets.myntassets.com/dpr_2,q_60,w_210,c_limit,fl_progressive/assets/images/2025/MAY/16/V58jZehY_74b2e973b5e34ade8d98e21fd0aa112d.jpg"
+        }
+      ]
+    }
+  ]
+}

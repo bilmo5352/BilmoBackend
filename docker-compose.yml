@@ -1,48 +1,55 @@
+version: '3.8'
+
 services:
-  bilmo-api:
-    build: .
+  # E-commerce Scraper API
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: bilmo-api
     ports:
       - "5000:5000"
     environment:
       - PYTHONUNBUFFERED=1
-      - FLASK_APP=smart_api.py
+      - FLASK_APP=app.py
       - FLASK_ENV=production
-      - DISPLAY=:99
+      - MONGODB_URI=mongodb://admin:password123@mongodb:27017/scraper_db?authSource=admin
     volumes:
-      # Mount HTML files directory for persistence
+      # Persist HTML files
       - ./html_files:/app/html_files
-      # Mount logs directory
+      # Persist logs
       - ./logs:/app/logs
-      # Mount frontend files
-      - ./frontend:/app/frontend
-      - ./script.js:/app/script.js
-      - ./style.css:/app/style.css
-      - ./index.html:/app/index.html
+      # Mount templates if needed
+      - ./templates:/app/templates:ro
     restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/status"]
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-    # Add security options for Chrome
+    # Chrome/Selenium requirements
     security_opt:
       - seccomp:unconfined
-    # Add shared memory for Chrome
-    shm_size: 2gb
-    # Add capabilities for Chrome
+    shm_size: '2gb'
     cap_add:
       - SYS_ADMIN
     # Resource limits
     deploy:
       resources:
         limits:
+          cpus: '2'
           memory: 4G
         reservations:
+          cpus: '1'
           memory: 2G
+    networks:
+      - bilmo-network
 
-  # Optional: Add MongoDB service if you want to use it
+  # MongoDB Database
   mongodb:
     image: mongo:7.0
     container_name: bilmo-mongodb
@@ -51,13 +58,27 @@ services:
     environment:
       - MONGO_INITDB_ROOT_USERNAME=admin
       - MONGO_INITDB_ROOT_PASSWORD=password123
-      - MONGO_INITDB_DATABASE=bilmo_cache
+      - MONGO_INITDB_DATABASE=scraper_db
     volumes:
       - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
       - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
     restart: unless-stopped
-    profiles:
-      - mongodb
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - bilmo-network
 
 volumes:
   mongodb_data:
+    driver: local
+  mongodb_config:
+    driver: local
+
+networks:
+  bilmo-network:
+    driver: bridge

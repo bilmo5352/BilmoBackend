@@ -1,0 +1,36 @@
+{
+  "products": [
+    {
+      "title": "CULT",
+      "name": "CULT",
+      "price": "Rs. 299",
+      "link": "https://www.myntra.com/cricket-bats/cult/cult-all-rounder-cricket-bat-/36944429/buy",
+      "rating": null,
+      "image_url": "https://assets.myntassets.com/dpr_2,q_60,w_210,c_limit,fl_progressive/assets/images/2025/SEPTEMBER/13/CTsnXaOk_bfbaa99b6d2c4b938f2cdf71b7710ea4.jpg",
+      "image_alt": "CULT All Rounder Cricket Bat",
+      "images": [
+        {
+          "url": "https://assets.myntassets.com/dpr_2,q_60,w_210,c_limit,fl_progressive/assets/images/2025/SEPTEMBER/13/CTsnXaOk_bfbaa99b6d2c4b938f2cdf71b7710ea4.jpg",
+          "alt": "CULT All Rounder Cricket Bat",
+          "thumbnail": "https://assets.myntassets.com/dpr_2,q_60,w_210,c_limit,fl_progressive/assets/images/2025/SEPTEMBER/13/CTsnXaOk_bfbaa99b6d2c4b938f2cdf71b7710ea4.jpg"
+        }
+      ]
+    },
+    {
+      "title": "CULT",
+      "name": "CULT",
+      "price": "Rs. 299",
+      "link": "https://www.myntra.com/cricket-bats/cult/-cult-chase-master-cricket-bat-/36944441/buy",
+      "rating": null,
+      "image_url": "https://assets.myntassets.com/dpr_2,q_60,w_210,c_limit,fl_progressive/assets/images/2025/SEPTEMBER/13/8oCiiSCL_e0db02d39d32458eb86fb509b2799821.jpg",
+      "image_alt": "CULT Chase Master Cricket Bat",
+      "images": [
+        {
+          "url": "https://assets.myntassets.com/dpr_2,q_60,w_210,c_limit,fl_progressive/assets/images/2025/SEPTEMBER/13/8oCiiSCL_e0db02d39d32458eb86fb509b2799821.jpg",
+          "alt": "CULT Chase Master Cricket Bat",
+          "thumbnail": "https://assets.myntassets.com/dpr_2,q_60,w_210,c_limit,fl_progressive/assets/images/2025/SEPTEMBER/13/8oCiiSCL_e0db02d39d32458eb86fb509b2799821.jpg"
+        }
+      ]
+    }
+  ]
+}

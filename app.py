@@ -32,7 +32,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app, origins=["http://localhost:3000", "http://127.0.0.1:3000"], 
+CORS(app, origins=["http://localhost:3000", "http://127.0.0.1:3000", "file://", "null"], 
      allow_headers=["Content-Type", "Authorization", "Access-Control-Allow-Origin"], 
      methods=["GET", "POST", "OPTIONS", "PUT", "DELETE"],
      supports_credentials=True)
@@ -4522,6 +4522,124 @@ def get_mongodb_result(result_id):
         
     except Exception as e:
         logger.error(f"MongoDB result error: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route('/amazon/deals')
+def get_amazon_deals():
+    """Get Amazon homepage deals"""
+    try:
+        logger.info("📦 Getting Amazon homepage deals...")
+        
+        # Check if we have cached deals (less than 1 hour old)
+        import os
+        from datetime import datetime, timedelta
+        
+        deals_file = 'amazon_homepage_deals.json'
+        use_cache = False
+        
+        if os.path.exists(deals_file):
+            file_time = datetime.fromtimestamp(os.path.getmtime(deals_file))
+            if datetime.now() - file_time < timedelta(hours=1):
+                use_cache = True
+                logger.info("📦 Using cached Amazon deals (less than 1 hour old)")
+        
+        if use_cache:
+            try:
+                with open(deals_file, 'r', encoding='utf-8') as f:
+                    deals_data = json.load(f)
+                    deals_data['source'] = 'cache'
+                    return jsonify({
+                        "success": True,
+                        "data": deals_data,
+                        "cache": True
+                    })
+            except Exception as e:
+                logger.warning(f"Failed to read cached deals: {e}")
+        
+        # Scrape fresh deals
+        logger.info("🕷️ Scraping fresh Amazon homepage deals...")
+        from amazon_homepage_deals import scrape_amazon_homepage_deals
+        
+        deals_data = scrape_amazon_homepage_deals(headless=True, max_deals=20)
+        deals_data['source'] = 'fresh'
+        
+        # Save to MongoDB
+        if mongodb_collection:
+            try:
+                save_to_mongodb(deals_data['deals'], 'amazon_deals', 'homepage', 'Amazon')
+            except Exception as e:
+                logger.warning(f"Failed to save deals to MongoDB: {e}")
+        
+        return jsonify({
+            "success": True,
+            "data": deals_data,
+            "cache": False
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Amazon deals error: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route('/flipkart/deals')
+def get_flipkart_deals():
+    """Get Flipkart homepage deals"""
+    try:
+        logger.info("📦 Getting Flipkart homepage deals...")
+        
+        # Check if we have cached deals (less than 1 hour old)
+        import os
+        from datetime import datetime, timedelta
+        
+        deals_file = 'flipkart_homepage_deals.json'
+        use_cache = False
+        
+        if os.path.exists(deals_file):
+            file_time = datetime.fromtimestamp(os.path.getmtime(deals_file))
+            if datetime.now() - file_time < timedelta(hours=1):
+                use_cache = True
+                logger.info("📦 Using cached Flipkart deals (less than 1 hour old)")
+        
+        if use_cache:
+            try:
+                with open(deals_file, 'r', encoding='utf-8') as f:
+                    deals_data = json.load(f)
+                    deals_data['source'] = 'cache'
+                    return jsonify({
+                        "success": True,
+                        "data": deals_data,
+                        "cache": True
+                    })
+            except Exception as e:
+                logger.warning(f"Failed to read cached deals: {e}")
+        
+        # Scrape fresh deals
+        logger.info("🕷️ Scraping fresh Flipkart homepage deals...")
+        from flipkart_homepage_deals import scrape_flipkart_homepage_deals
+        
+        deals_data = scrape_flipkart_homepage_deals(headless=True, max_items_per_section=20)
+        deals_data['source'] = 'fresh'
+        
+        # Save to MongoDB
+        if mongodb_collection:
+            try:
+                save_to_mongodb(deals_data['sections'], 'flipkart_deals', 'homepage', 'Flipkart')
+            except Exception as e:
+                logger.warning(f"Failed to save deals to MongoDB: {e}")
+        
+        return jsonify({
+            "success": True,
+            "data": deals_data,
+            "cache": False
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Flipkart deals error: {e}")
         return jsonify({
             "success": False,
             "error": str(e)

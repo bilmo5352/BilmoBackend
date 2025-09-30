@@ -1,6 +1,6 @@
 // API Configuration
 const API_BASE_URL = 'http://127.0.0.1:5000/';
-const SMART_API_BASE_URL = 'http://127.0.0.1:5000/'; // New smart API endpoint
+const SMART_API_BASE_URL = 'http://127.0.0.1:5000'; // New smart API endpoint
 
 // Global Variables
 let currentPlatform = 'all';
@@ -13,6 +13,9 @@ const searchButton = document.getElementById('searchButton');
 const searchIcon = document.getElementById('searchIcon');
 const searchText = document.getElementById('searchText');
 const platformButtons = document.querySelectorAll('.platform-button');
+const dealsButton = document.getElementById('amazonDealsButton');
+const flipkartDealsButton = document.getElementById('flipkartDealsButton');
+const myntraDealsButton = document.getElementById('myntraDealsButton');
 const searchHistoryDiv = document.getElementById('searchHistory');
 const historyButtons = document.querySelector('.history-buttons');
 const errorDiv = document.getElementById('error');
@@ -90,14 +93,34 @@ function setupEventListeners() {
     }
     
     platformButtons.forEach(button => {
-        button.addEventListener('click', () => {
+        button.addEventListener('click', async () => {
             currentPlatform = button.dataset.platform;
             updatePlatformButtons();
+            
             if (searchInput.value.trim()) {
                 handleSearch();
             }
         });
     });
+    
+    // Deals button event listeners
+    if (dealsButton) {
+        dealsButton.addEventListener('click', async () => {
+            await loadAmazonDeals();
+        });
+    }
+    
+        if (flipkartDealsButton) {
+            flipkartDealsButton.addEventListener('click', async () => {
+                await loadFlipkartDeals();
+            });
+        }
+        
+        if (myntraDealsButton) {
+            myntraDealsButton.addEventListener('click', async () => {
+                await loadMyntraDeals();
+            });
+        }
 }
 
 // Search Functions
@@ -182,7 +205,7 @@ function displayResults(data) {
             if (platformData.products && Array.isArray(platformData.products)) {
                 platformProducts = platformData.products;
             } else if (platformData.basic_products && Array.isArray(platformData.basic_products)) {
-                // Handle Meesho's structure
+                // Handle Myntra's structure
                 platformProducts = platformData.basic_products;
             }
             
@@ -322,6 +345,97 @@ function createProductCard(product) {
     `;
 }
 
+async function loadMyntraDeals() {
+    setDealsButtonLoading(true, myntraDealsButton);
+    setLoading(true, 'Scraping Myntra Homepage...');
+    hideMessages();
+    hideResults();
+    
+    try {
+        console.log('👗 Loading Myntra homepage deals...');
+        
+        const response = await fetch(`${SMART_API_BASE_URL}/myntra/deals`, {
+            method: 'GET',
+            mode: 'cors',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        console.log('👗 Myntra deals response:', result);
+        
+        if (result.success && result.data) {
+            displayMyntraDeals(result.data);
+            showSuccess(`Found ${result.data.total_sections || 0} sections with ${result.data.total_items || 0} deals!`);
+        } else {
+            showError(result.error || 'Failed to load Myntra deals');
+        }
+    } catch (error) {
+        console.error('Myntra deals error:', error);
+        showError('Failed to load Myntra deals: ' + error.message);
+    } finally {
+        setDealsButtonLoading(false, myntraDealsButton);
+        setLoading(false);
+    }
+}
+
+function displayMyntraDeals(dealsData) {
+    console.log('👗 Displaying Myntra homepage sections:', dealsData);
+    
+    const sections = dealsData.sections || [];
+    
+    if (sections.length === 0) {
+        showError('No Myntra deals sections found');
+        return;
+    }
+    
+    // Create results display
+    resultsCount.textContent = `Found ${sections.length} Myntra sections with ${dealsData.total_items || 0} deals`;
+    
+    // Create sections display
+    let sectionsHTML = '';
+    
+    sections.forEach((section, sectionIndex) => {
+        const items = section.items || [];
+        
+        sectionsHTML += `
+            <div class="deals-section-display">
+                <h3 class="section-title">${section.section_title}</h3>
+                <div class="deals-grid">
+        `;
+        
+        items.forEach((item, itemIndex) => {
+            const title = item.title || 'No title';
+            const price = item.price || 'Price not available';
+            const discount = item.discount || '';
+            const image = item.image || '';
+            const link = item.link || '#';
+            
+            sectionsHTML += `
+                <div class="deal-card">
+                    <a href="${link}" target="_blank" class="deal-link">
+                        ${image ? `<img src="${image}" alt="${title}" class="deal-image" loading="lazy">` : ''}
+                        <div class="deal-info">
+                            <h4 class="deal-title">${title}</h4>
+                            <div class="deal-price">${price}</div>
+                            ${discount ? `<div class="deal-discount">${discount}</div>` : ''}
+                        </div>
+                    </a>
+                </div>
+            `;
+        });
+        
+        sectionsHTML += `
+                </div>
+            </div>
+        `;
+    });
+    
+    productsGrid.innerHTML = sectionsHTML;
+    showResults();
+}
+
 // Platform Functions
 function updatePlatformButtons() {
     platformButtons.forEach(button => {
@@ -333,7 +447,7 @@ function getPlatformColor(platform) {
     const colors = {
         amazon: '#ff9900',
         flipkart: '#2874f0',
-        meesho: '#f43397',
+        Myntra: '#f43397',
         myntra: '#ff3f6c'
     };
     return colors[platform] || '#667eea';
@@ -398,10 +512,519 @@ function hideError() {
     errorDiv.style.display = 'none';
 }
 
+function showSuccess(message) {
+    // Create success message element if it doesn't exist
+    let successDiv = document.getElementById('success');
+    if (!successDiv) {
+        successDiv = document.createElement('div');
+        successDiv.id = 'success';
+        successDiv.className = 'success-message';
+        successDiv.style.cssText = `
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border: 1px solid #c3e6cb;
+            display: none;
+        `;
+        errorDiv.parentNode.insertBefore(successDiv, errorDiv.nextSibling);
+    }
+    
+    successDiv.textContent = message;
+    successDiv.style.display = 'block';
+    
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+        successDiv.style.display = 'none';
+    }, 5000);
+}
+
+function hideMessages() {
+    hideError();
+    const successDiv = document.getElementById('success');
+    if (successDiv) {
+        successDiv.style.display = 'none';
+    }
+}
+
 function showResults() {
     resultsDiv.style.display = 'block';
 }
 
 function hideResults() {
     resultsDiv.style.display = 'none';
+}
+
+// Amazon Deals Functions
+async function loadAmazonDeals() {
+    setDealsButtonLoading(true);
+    setLoading(true, 'Scraping Amazon Homepage...');
+    hideMessages();
+    hideResults();
+    
+    try {
+        console.log('🛒 Loading Amazon homepage deals...');
+        
+        const response = await fetch(`${SMART_API_BASE_URL}/amazon/deals`, {
+            method: 'GET',
+            mode: 'cors',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        console.log('🛒 Amazon deals response:', result);
+        
+        if (result.success && result.data) {
+            displayAmazonDeals(result.data);
+            showSuccess(`Found ${result.data.total_sections || 0} sections with ${result.data.total_items || 0} deals!`);
+        } else {
+            showError(result.error || 'Failed to load Amazon deals');
+        }
+    } catch (error) {
+        console.error('Amazon deals error:', error);
+        showError('Failed to load Amazon deals: ' + error.message);
+    } finally {
+        setDealsButtonLoading(false);
+        setLoading(false);
+    }
+}
+
+async function loadFlipkartDeals() {
+    setDealsButtonLoading(true, flipkartDealsButton);
+    setLoading(true, 'Scraping Flipkart Homepage...');
+    hideMessages();
+    hideResults();
+    
+    try {
+        console.log('🛍️ Loading Flipkart homepage deals...');
+        
+        const response = await fetch(`${SMART_API_BASE_URL}/flipkart/deals`, {
+            method: 'GET',
+            mode: 'cors',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        console.log('🛍️ Flipkart deals response:', result);
+        
+        if (result.success && result.data) {
+            displayFlipkartDeals(result.data);
+            showSuccess(`Found ${result.data.total_sections || 0} sections with ${result.data.total_items || 0} deals!`);
+        } else {
+            showError(result.error || 'Failed to load Flipkart deals');
+        }
+    } catch (error) {
+        console.error('Flipkart deals error:', error);
+        showError('Failed to load Flipkart deals: ' + error.message);
+    } finally {
+        setDealsButtonLoading(false, flipkartDealsButton);
+        setLoading(false);
+    }
+}
+
+function setDealsButtonLoading(loading, button = dealsButton) {
+    if (button) {
+        if (loading) {
+            button.classList.add('loading');
+            button.disabled = true;
+        } else {
+            button.classList.remove('loading');
+            button.disabled = false;
+        }
+    }
+}
+
+function displayFlipkartDeals(dealsData) {
+    console.log('🛍️ Displaying Flipkart homepage sections:', dealsData);
+    
+    const sections = dealsData.sections || [];
+    
+    if (sections.length === 0) {
+        showError('No Flipkart deals sections found');
+        return;
+    }
+    
+    // Create results display
+    resultsCount.textContent = `Found ${sections.length} Flipkart sections with ${dealsData.total_items || 0} deals`;
+    
+    // Create sections display
+    let sectionsHTML = '';
+    
+    sections.forEach((section, sectionIndex) => {
+        const items = section.items || [];
+        
+        sectionsHTML += `
+            <div class="deals-section-display">
+                <h3 class="section-title">${section.section_title}</h3>
+                <div class="deals-grid">
+        `;
+        
+        items.forEach((item, itemIndex) => {
+            const title = item.title || 'No title';
+            const price = item.price || 'Price not available';
+            const discount = item.discount || '';
+            const image = item.image || '';
+            const link = item.link || '#';
+            
+            sectionsHTML += `
+                <div class="deal-card">
+                    <a href="${link}" target="_blank" class="deal-link">
+                        ${image ? `<img src="${image}" alt="${title}" class="deal-image" loading="lazy">` : ''}
+                        <div class="deal-info">
+                            <h4 class="deal-title">${title}</h4>
+                            <div class="deal-price">${price}</div>
+                            ${discount ? `<div class="deal-discount">${discount}</div>` : ''}
+                        </div>
+                    </a>
+                </div>
+            `;
+        });
+        
+        sectionsHTML += `
+                </div>
+            </div>
+        `;
+    });
+    
+    productsGrid.innerHTML = sectionsHTML;
+    showResults();
+}
+
+function displayAmazonDeals(dealsData) {
+    console.log('🛒 Displaying Amazon homepage sections:', dealsData);
+    
+    const sections = dealsData.sections || [];
+    
+    if (sections.length === 0) {
+        showError('No Amazon sections found at the moment.');
+        return;
+    }
+    
+    const totalItems = dealsData.total_items || sections.reduce((sum, s) => sum + s.item_count, 0);
+    
+    // Update results display
+    resultsCount.textContent = `Amazon Homepage - ${sections.length} Sections • ${totalItems} Items`;
+    
+    // Update source and timing info
+    const resultsSource = document.getElementById('resultsSource');
+    const processingTime = document.getElementById('processingTime');
+    
+    if (dealsData.source === 'cache') {
+        resultsSource.innerHTML = `📦 From cache ${dealsData.cache_age ? `(${dealsData.cache_age})` : ''}`;
+        resultsSource.className = 'results-source cache-source';
+    } else {
+        resultsSource.innerHTML = `🕷️ Fresh web scraping → 💾 Saved to MongoDB`;
+        resultsSource.className = 'results-source fresh-source';
+    }
+    
+    if (dealsData.timestamp) {
+        const timestamp = new Date(dealsData.timestamp);
+        processingTime.textContent = `🕐 ${timestamp.toLocaleTimeString()}`;
+    }
+    
+    // Create grouped sections display
+    productsGrid.innerHTML = createGroupedSectionsHTML(sections);
+    
+    showResults();
+}
+
+function createGroupedSectionsHTML(sections) {
+    let html = '';
+    
+    sections.forEach((section, sectionIndex) => {
+        html += `
+            <div class="section-group" style="grid-column: 1 / -1; margin-bottom: 30px;">
+                <div class="section-header" style="margin-bottom: 15px; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; color: white;">
+                    <h2 style="margin: 0; font-size: 24px; font-weight: 600;">
+                        ${section.section_title}
+                    </h2>
+                    <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 14px;">
+                        ${section.item_count} items
+                    </p>
+                </div>
+                <div class="section-items" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">
+                    ${section.items.map(item => createSectionItemCard(item)).join('')}
+                </div>
+            </div>
+        `;
+    });
+    
+    return html;
+}
+
+function createSectionItemCard(item) {
+    const imageUrl = item.image || '';
+    const title = item.title || 'Product Title Not Available';
+    const price = item.price || '';
+    const discount = item.discount || '';
+    const link = item.link || '#';
+    
+    return `
+        <div class="product-card" style="background: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-5px)'; this.style.boxShadow='0 4px 16px rgba(0,0,0,0.2)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.1)';">
+            <div class="product-platform platform-amazon" style="background-color: #ff9900; color: white; padding: 5px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; display: inline-block; margin-bottom: 10px;">
+                AMAZON
+            </div>
+            
+            ${imageUrl ? `
+                <img 
+                    src="${imageUrl}" 
+                    alt="${title}"
+                    class="product-image"
+                    style="width: 100%; height: 200px; object-fit: contain; margin-bottom: 10px; border-radius: 4px;"
+                    onerror="this.style.display='none'"
+                />
+            ` : ''}
+            
+            <h3 class="product-title" style="font-size: 14px; font-weight: 500; color: #333; margin: 10px 0; line-height: 1.4; height: 40px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">
+                ${title}
+            </h3>
+            
+            ${price ? `
+                <div class="product-price" style="font-size: 20px; font-weight: bold; color: #B12704; margin: 10px 0;">
+                    ${price}
+                </div>
+            ` : ''}
+            
+            ${discount ? `
+                <div class="product-discount" style="color: #007600; font-weight: 600; font-size: 14px; margin: 5px 0;">
+                    ${discount}
+                </div>
+            ` : ''}
+            
+            ${link !== '#' ? `
+                <a href="${link}" target="_blank" rel="noopener noreferrer" class="product-link" style="display: inline-block; background: #ff9900; color: white; padding: 10px 20px; border-radius: 4px; text-decoration: none; margin-top: 10px; font-size: 14px; font-weight: 500; transition: background 0.2s;" onmouseover="this.style.background='#e88c00'" onmouseout="this.style.background='#ff9900'">
+                    View on Amazon 🔗
+                </a>
+            ` : ''}
+        </div>
+    `;
+}
+
+async function loadMyntraDeals() {
+    setDealsButtonLoading(true, myntraDealsButton);
+    setLoading(true, 'Scraping Myntra Homepage...');
+    hideMessages();
+    hideResults();
+    
+    try {
+        console.log('👗 Loading Myntra homepage deals...');
+        
+        const response = await fetch(`${SMART_API_BASE_URL}/myntra/deals`, {
+            method: 'GET',
+            mode: 'cors',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        console.log('👗 Myntra deals response:', result);
+        
+        if (result.success && result.data) {
+            displayMyntraDeals(result.data);
+            showSuccess(`Found ${result.data.total_sections || 0} sections with ${result.data.total_items || 0} deals!`);
+        } else {
+            showError(result.error || 'Failed to load Myntra deals');
+        }
+    } catch (error) {
+        console.error('Myntra deals error:', error);
+        showError('Failed to load Myntra deals: ' + error.message);
+    } finally {
+        setDealsButtonLoading(false, myntraDealsButton);
+        setLoading(false);
+    }
+}
+
+function displayMyntraDeals(dealsData) {
+    console.log('👗 Displaying Myntra homepage sections:', dealsData);
+    
+    const sections = dealsData.sections || [];
+    
+    if (sections.length === 0) {
+        showError('No Myntra deals sections found');
+        return;
+    }
+    
+    // Create results display
+    resultsCount.textContent = `Found ${sections.length} Myntra sections with ${dealsData.total_items || 0} deals`;
+    
+    // Create sections display
+    let sectionsHTML = '';
+    
+    sections.forEach((section, sectionIndex) => {
+        const items = section.items || [];
+        
+        sectionsHTML += `
+            <div class="deals-section-display">
+                <h3 class="section-title">${section.section_title}</h3>
+                <div class="deals-grid">
+        `;
+        
+        items.forEach((item, itemIndex) => {
+            const title = item.title || 'No title';
+            const price = item.price || 'Price not available';
+            const discount = item.discount || '';
+            const image = item.image || '';
+            const link = item.link || '#';
+            
+            sectionsHTML += `
+                <div class="deal-card">
+                    <a href="${link}" target="_blank" class="deal-link">
+                        ${image ? `<img src="${image}" alt="${title}" class="deal-image" loading="lazy">` : ''}
+                        <div class="deal-info">
+                            <h4 class="deal-title">${title}</h4>
+                            <div class="deal-price">${price}</div>
+                            ${discount ? `<div class="deal-discount">${discount}</div>` : ''}
+                        </div>
+                    </a>
+                </div>
+            `;
+        });
+        
+        sectionsHTML += `
+                </div>
+            </div>
+        `;
+    });
+    
+    productsGrid.innerHTML = sectionsHTML;
+    showResults();
+}
+
+function createDealCard(deal) {
+    const imageUrl = deal.image || '';
+    const title = deal.title || 'Deal Title Not Available';
+    const price = deal.price || '';
+    const discount = deal.discount || '';
+    const link = deal.link || '#';
+    const dealType = deal.deal_type || 'Deal';
+    
+    return `
+        <div class="product-card">
+            <div class="product-platform platform-amazon" style="background-color: #ff9900">
+                ${dealType.toUpperCase()}
+            </div>
+            
+            ${imageUrl ? `
+                <img 
+                    src="${imageUrl}" 
+                    alt="${title}"
+                    class="product-image"
+                    onerror="this.style.display='none'"
+                />
+            ` : ''}
+            
+            <h3 class="product-title">${title}</h3>
+            
+            ${price ? `<div class="product-price">${price}</div>` : ''}
+            
+            ${discount ? `
+                <div class="product-discount" style="color: #28a745; font-weight: bold;">
+                    ${discount}
+                </div>
+            ` : ''}
+            
+            ${link !== '#' ? `
+                <a href="${link}" target="_blank" rel="noopener noreferrer" class="product-link">
+                    View Deal 🔗
+                </a>
+            ` : ''}
+        </div>
+    `;
+}
+
+async function loadMyntraDeals() {
+    setDealsButtonLoading(true, myntraDealsButton);
+    setLoading(true, 'Scraping Myntra Homepage...');
+    hideMessages();
+    hideResults();
+    
+    try {
+        console.log('👗 Loading Myntra homepage deals...');
+        
+        const response = await fetch(`${SMART_API_BASE_URL}/myntra/deals`, {
+            method: 'GET',
+            mode: 'cors',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        console.log('👗 Myntra deals response:', result);
+        
+        if (result.success && result.data) {
+            displayMyntraDeals(result.data);
+            showSuccess(`Found ${result.data.total_sections || 0} sections with ${result.data.total_items || 0} deals!`);
+        } else {
+            showError(result.error || 'Failed to load Myntra deals');
+        }
+    } catch (error) {
+        console.error('Myntra deals error:', error);
+        showError('Failed to load Myntra deals: ' + error.message);
+    } finally {
+        setDealsButtonLoading(false, myntraDealsButton);
+        setLoading(false);
+    }
+}
+
+function displayMyntraDeals(dealsData) {
+    console.log('👗 Displaying Myntra homepage sections:', dealsData);
+    
+    const sections = dealsData.sections || [];
+    
+    if (sections.length === 0) {
+        showError('No Myntra deals sections found');
+        return;
+    }
+    
+    // Create results display
+    resultsCount.textContent = `Found ${sections.length} Myntra sections with ${dealsData.total_items || 0} deals`;
+    
+    // Create sections display
+    let sectionsHTML = '';
+    
+    sections.forEach((section, sectionIndex) => {
+        const items = section.items || [];
+        
+        sectionsHTML += `
+            <div class="deals-section-display">
+                <h3 class="section-title">${section.section_title}</h3>
+                <div class="deals-grid">
+        `;
+        
+        items.forEach((item, itemIndex) => {
+            const title = item.title || 'No title';
+            const price = item.price || 'Price not available';
+            const discount = item.discount || '';
+            const image = item.image || '';
+            const link = item.link || '#';
+            
+            sectionsHTML += `
+                <div class="deal-card">
+                    <a href="${link}" target="_blank" class="deal-link">
+                        ${image ? `<img src="${image}" alt="${title}" class="deal-image" loading="lazy">` : ''}
+                        <div class="deal-info">
+                            <h4 class="deal-title">${title}</h4>
+                            <div class="deal-price">${price}</div>
+                            ${discount ? `<div class="deal-discount">${discount}</div>` : ''}
+                        </div>
+                    </a>
+                </div>
+            `;
+        });
+        
+        sectionsHTML += `
+                </div>
+            </div>
+        `;
+    });
+    
+    productsGrid.innerHTML = sectionsHTML;
+    showResults();
 }
