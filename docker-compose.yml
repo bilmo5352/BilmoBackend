@@ -8,11 +8,17 @@ services:
       - PYTHONUNBUFFERED=1
       - FLASK_APP=smart_api.py
       - FLASK_ENV=production
+      - DISPLAY=:99
     volumes:
       # Mount HTML files directory for persistence
       - ./html_files:/app/html_files
       # Mount logs directory
       - ./logs:/app/logs
+      # Mount frontend files
+      - ./frontend:/app/frontend
+      - ./script.js:/app/script.js
+      - ./style.css:/app/style.css
+      - ./index.html:/app/index.html
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/status"]
@@ -28,6 +34,13 @@ services:
     # Add capabilities for Chrome
     cap_add:
       - SYS_ADMIN
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 2G
 
   # Optional: Add MongoDB service if you want to use it
   mongodb:
