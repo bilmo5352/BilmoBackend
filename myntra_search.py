@@ -710,14 +710,128 @@ def search_myntra_universal(query: str, headless: bool = True):
                 except Exception as e:
                     print(f"  ❌ Error extracting image: {e}")
                 
-                # Extract rating
+                # Extract rating from product detail page
                 rating = None
                 try:
+                    # First try to find rating on search result page
                     rating_element = card.find_element(By.CSS_SELECTOR, "span.product-ratingsContainer span")
                     rating = rating_element.text.strip()
-                    print(f"  ✅ Found rating: {rating}")
+                    print(f"  ✅ Found rating on search page: {rating}")
                 except:
-                    print(f"  ❌ No rating found")
+                    # If not found on search page, visit product page to get rating
+                    try:
+                        print(f"  🔍 Visiting product page to extract rating...")
+                        original_url = driver.current_url
+                        
+                        # Click on the product link
+                        driver.get(link)
+                        time.sleep(2)
+                        
+                        # Look for rating on product detail page using multiple methods
+                        import re
+                        
+                        # Method 1: Try CSS selectors
+                        rating_selectors = [
+                            "div[class*='rating'] span",
+                            "span[class*='rating']",
+                            "div[class*='star'] span", 
+                            "span[class*='star']",
+                            "div[class*='pdp-rating']",
+                            "span[class*='pdp-rating']",
+                            "div[class*='product-rating']",
+                            "span[class*='product-rating']",
+                            "div[class*='avg-rating']",
+                            "span[class*='avg-rating']",
+                            "div[class*='score']",
+                            "span[class*='score']"
+                        ]
+                        
+                        for selector in rating_selectors:
+                            try:
+                                rating_elements = driver.find_elements(By.CSS_SELECTOR, selector)
+                                for rating_elem in rating_elements:
+                                    rating_text = rating_elem.text.strip()
+                                    if rating_text and ('out of' in rating_text.lower() or 'star' in rating_text.lower() or '★' in rating_text or '⭐' in rating_text):
+                                        rating = rating_text
+                                        print(f"  ✅ Found rating on product page: {rating}")
+                                        break
+                                if rating:
+                                    break
+                            except:
+                                continue
+                        
+                        # Method 2: Extract from page source using regex
+                        if not rating:
+                            try:
+                                page_source = driver.page_source
+                                
+                                # Look for rating patterns in page source
+                                rating_patterns = [
+                                    r'(\d+\.\d+)\s*out\s*of\s*5',  # "4.3 out of 5"
+                                    r'(\d+\.\d+)\s*★',  # "4.3 ★"
+                                    r'(\d+\.\d+)\s*⭐',  # "4.3 ⭐"
+                                    r'rating[^>]*>([^<]*(\d+\.\d+)[^<]*)',  # rating with number
+                                    r'(\d+\.\d+)\s*ratings?',  # "4.3 ratings"
+                                    r'(\d+\.\d+)\s*stars?',  # "4.3 stars"
+                                ]
+                                
+                                for pattern in rating_patterns:
+                                    matches = re.findall(pattern, page_source, re.IGNORECASE)
+                                    if matches:
+                                        # Extract the rating number
+                                        for match in matches:
+                                            if isinstance(match, tuple):
+                                                rating_num = match[0] if match[0].replace('.', '').isdigit() else match[1]
+                                            else:
+                                                rating_num = match
+                                            
+                                            try:
+                                                rating_val = float(rating_num)
+                                                if 0 <= rating_val <= 5:
+                                                    rating = rating_num
+                                                    print(f"  ✅ Found rating in page source: {rating}")
+                                                    break
+                                            except:
+                                                continue
+                                    if rating:
+                                        break
+                            except Exception as e:
+                                print(f"  ❌ Error extracting rating from page source: {e}")
+                        
+                        # Method 3: Look for any text containing rating-like patterns
+                        if not rating:
+                            try:
+                                all_elements = driver.find_elements(By.XPATH, "//*[text()]")
+                                for elem in all_elements:
+                                    try:
+                                        text = elem.text.strip()
+                                        # Look for patterns like "4.3", "4.3 out of 5", "4.3 ★"
+                                        if re.match(r'^\d+\.\d+$', text) or re.match(r'^\d+\.\d+\s*(out\s*of\s*5|★|⭐|stars?|ratings?)$', text):
+                                            try:
+                                                rating_val = float(text.split()[0])
+                                                if 0 <= rating_val <= 5:
+                                                    rating = text
+                                                    print(f"  ✅ Found rating in text: {rating}")
+                                                    break
+                                            except:
+                                                continue
+                                    except:
+                                        continue
+                            except Exception as e:
+                                print(f"  ❌ Error searching text elements: {e}")
+                        
+                        # Go back to search results
+                        driver.get(original_url)
+                        time.sleep(1)
+                        
+                    except Exception as e:
+                        print(f"  ❌ Error extracting rating from product page: {e}")
+                        # Try to go back to search results
+                        try:
+                            driver.get(original_url)
+                            time.sleep(1)
+                        except:
+                            pass
                 
                 product_data = {
                     'title': title,
