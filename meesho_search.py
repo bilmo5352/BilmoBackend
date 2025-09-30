@@ -13,8 +13,10 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
 
 def create_driver(headless: bool = False) -> webdriver.Chrome:
     chrome_options = Options()
@@ -34,16 +36,18 @@ def create_driver(headless: bool = False) -> webdriver.Chrome:
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option('useAutomationExtension', False)
     
-    # Let Selenium handle ChromeDriver automatically (newer versions)
+    # Use system ChromeDriver instead of ChromeDriverManager
     try:
+        # Try to use system ChromeDriver first
         driver = webdriver.Chrome(options=chrome_options)
         
         # Execute script to remove webdriver property
         driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         
+        print("✅ Meesho WebDriver initialized with system ChromeDriver")
         return driver
     except Exception as e:
-        print(f"Error creating Chrome driver: {e}")
+        print(f"❌ Error creating Chrome driver: {e}")
         print("Make sure Chrome browser is installed and up to date.")
         raise e
 
@@ -208,15 +212,51 @@ def search_meesho(query: str, headless: bool = False):
                     except:
                         continue
                 
-                # If no price found, try to extract from card text
+                # Extract price information from card text - Enhanced to get MRP and discounts
                 if not product_info.get('price'):
                     try:
                         card_text = card.text.strip()
                         lines = card_text.split('\n')
+                        import re
+                        
                         for line in lines:
                             line = line.strip()
-                            if line.startswith('₹') and len(line) < 20:
+                            
+                            # Look for multiple prices in one line like "₹233₹2579% off"
+                            if '₹' in line and line.count('₹') >= 2:
+                                price_pattern = r'₹[\d,]+'
+                                all_prices = re.findall(price_pattern, line)
+                                
+                                if len(all_prices) >= 2:
+                                    product_info['price'] = all_prices[0]
+                                    product_info['mrp'] = all_prices[1]
+                                    print(f"    Found current price: {all_prices[0]}")
+                                    print(f"    Found MRP: {all_prices[1]}")
+                                    
+                                    # Look for discount percentage
+                                    discount_match = re.search(r'(\d{1,2})%', line)
+                                    if discount_match:
+                                        discount_val = int(discount_match.group(1))
+                                        if 1 <= discount_val <= 95:
+                                            product_info['discount_percentage'] = discount_match.group(1) + '%'
+                                            print(f"    Found discount: {product_info['discount_percentage']}")
+                                    
+                                    # Calculate discount amount
+                                    try:
+                                        current_num = float(product_info['price'].replace('₹', '').replace(',', ''))
+                                        mrp_num = float(product_info['mrp'].replace('₹', '').replace(',', ''))
+                                        if mrp_num > current_num:
+                                            discount_amount = mrp_num - current_num
+                                            product_info['discount_amount'] = f"₹{discount_amount:,.0f}"
+                                            print(f"    Calculated discount amount: {product_info['discount_amount']}")
+                                    except Exception as e:
+                                        print(f"    Error calculating discount: {e}")
+                                    break
+                            
+                            # Fallback: single price
+                            elif line.startswith('₹') and len(line) < 20:
                                 product_info['price'] = line
+                                print(f"    Found price: {line}")
                                 break
                     except:
                         pass
@@ -256,12 +296,23 @@ def search_meesho(query: str, headless: bool = False):
                     except:
                         pass
                 
-                # Extract image URL
+                # Extract image URL and alt text
                 try:
                     img_elem = card.find_element(By.TAG_NAME, "img")
                     product_info['image_url'] = img_elem.get_attribute('src') or ''
+                    product_info['image_alt'] = img_elem.get_attribute('alt') or ''
+                    
+                    # Use image alt text as product title if we don't have a good title yet
+                    if product_info.get('image_alt') and (not product_info.get('title') or 
+                                       product_info.get('title', '').lower().startswith('pack of') or
+                                       len(product_info.get('title', '')) < 10):
+                        product_info['title'] = product_info['image_alt']
+                        print(f"    Using image alt as title: {product_info['image_alt'][:50]}...")
+                    else:
+                        print(f"    Found image: {product_info['image_alt'][:50]}...")
                 except:
                     product_info['image_url'] = ''
+                    product_info['image_alt'] = ''
                 
                 # Extract product link - the card itself might be the link
                 if not product_info.get('link'):
@@ -452,11 +503,16 @@ def search_meesho(query: str, headless: bool = False):
                     detailed_product = {
                         "name": product.get('title', ''),
                         "price": product.get('price', ''),
+                        "mrp": product.get('mrp', ''),
+                        "discount_percentage": product.get('discount_percentage', ''),
+                        "discount_amount": product.get('discount_amount', ''),
                         "brand": product.get('brand', ''),
                         "category": product.get('category', ''),
                         "rating": product.get('rating', ''),
+                        "reviews_count": product.get('reviews_count', ''),
+                        "availability": product.get('availability', ''),
                         "link": product.get('link', ''),
-                        "images": [{"url": product.get('image_url', ''), "alt": "", "thumbnail": product.get('image_url', '')}] if product.get('image_url') else []
+                        "images": [{"url": product.get('image_url', ''), "alt": product.get('image_alt', ''), "thumbnail": product.get('image_url', '')}] if product.get('image_url') else []
                     }
                     
                     detailed_products.append(detailed_product)
@@ -475,9 +531,20 @@ def search_meesho(query: str, headless: bool = False):
                 for i, product in enumerate(detailed_products, 1):
                     print(f"\n{i}. {product.get('name', 'Name not found')}")
                     print(f"   Price: {product.get('price', 'Price not found')}")
+                    if product.get('mrp'):
+                        print(f"   MRP: {product['mrp']}")
+                    if product.get('discount_percentage'):
+                        print(f"   Discount: {product['discount_percentage']}")
+                    if product.get('discount_amount'):
+                        print(f"   You Save: {product['discount_amount']}")
                     print(f"   Brand: {product.get('brand', 'Brand not found')}")
                     print(f"   Category: {product.get('category', 'Category not found')}")
-                    print(f"   Rating: {product.get('rating', 'Rating not found')}")
+                    if product.get('rating'):
+                        print(f"   Rating: {product['rating']}")
+                    if product.get('reviews_count'):
+                        print(f"   Reviews: {product['reviews_count']}")
+                    if product.get('availability'):
+                        print(f"   Availability: {product['availability']}")
                     print(f"   Images: {len(product.get('images', []))} images found")
                     if product.get('images'):
                         print(f"   Main Image: {product['images'][0]['url']}")

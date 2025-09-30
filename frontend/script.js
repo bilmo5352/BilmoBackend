@@ -1,6 +1,6 @@
 // API Configuration
-const API_BASE_URL = 'http://localhost:5000';
-const SMART_API_BASE_URL = 'http://localhost:5000'; // New smart API endpoint
+const API_BASE_URL = 'http://127.0.0.1:5000/';
+const SMART_API_BASE_URL = 'http://127.0.0.1:5000/'; // New smart API endpoint
 
 // Global Variables
 let currentPlatform = 'all';
@@ -253,8 +253,33 @@ function displayResults(data) {
 
 function createProductCard(product) {
     const platformColor = getPlatformColor(product.platform);
-    const imageUrl = product.image_url || product.image || '';
-    const imageAlt = product.image_alt || product.title || product.name || 'Product Image';
+    
+    // Handle different image structures
+    let imageUrl = '';
+    let imageAlt = '';
+    
+    console.log('🔍 Creating product card for:', product.title || product.name);
+    console.log('🔍 Product structure:', product);
+    
+    if (product.image_url) {
+        // Direct image_url field
+        imageUrl = product.image_url;
+        imageAlt = product.image_alt || product.title || product.name || 'Product Image';
+        console.log('✅ Using image_url:', imageUrl);
+    } else if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+        // Images array structure from smart API
+        imageUrl = product.images[0].url || '';
+        imageAlt = product.images[0].alt || product.title || product.name || 'Product Image';
+        console.log('✅ Using images[0].url:', imageUrl);
+    } else if (product.image) {
+        // Fallback to image field
+        imageUrl = product.image;
+        imageAlt = product.title || product.name || 'Product Image';
+        console.log('✅ Using image:', imageUrl);
+    } else {
+        console.log('❌ No image found for product:', product.title || product.name);
+    }
+    
     const title = product.title || product.name || 'Product Name Not Available';
     const price = product.price || 'Price not available';
     const rating = product.rating || '';

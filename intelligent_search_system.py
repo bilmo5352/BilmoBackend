@@ -27,7 +27,7 @@ class IntelligentSearchSystem:
         self.mongodb_manager = UnifiedMongoDBManager()
         self.cache_expiry_hours = cache_expiry_hours
         
-        # Import scrapers
+        # Import enhanced scrapers
         try:
             from amazon_search import search_amazon
             from flipkart_search import search_flipkart
@@ -40,7 +40,8 @@ class IntelligentSearchSystem:
                 'Meesho': search_meesho,
                 'Myntra': search_myntra
             }
-            logger.info("✅ Successfully imported all scrapers")
+            logger.info("✅ Successfully imported all enhanced scrapers")
+            logger.info("🎯 Enhanced features: MRP extraction, discount calculations, improved ratings")
         except ImportError as e:
             logger.error(f"❌ Failed to import scrapers: {e}")
             self.scrapers = {}
@@ -120,33 +121,82 @@ class IntelligentSearchSystem:
                 logger.info(f"🔍 {platform_name} returned: {type(products)} - {str(products)[:200]}...")
                 
                 if products and isinstance(products, dict):
-                    # Handle different return formats
+                    # Handle different return formats from enhanced scrapers
                     if 'basic_products' in products:
                         # Handle Amazon and Meesho's structure with basic_products and detailed_products
                         basic_products = products.get('basic_products', [])
+                        detailed_products = products.get('detailed_products', [])
+                        
+                        # Use detailed_products if available, otherwise basic_products
+                        # But ensure we have image_alt field for proper image handling
+                        final_products = detailed_products if detailed_products else basic_products
+                        
+                        # If detailed_products don't have image_alt but basic_products do, merge them
+                        if detailed_products and basic_products:
+                            for i, detailed_product in enumerate(detailed_products):
+                                if i < len(basic_products):
+                                    basic_product = basic_products[i]
+                                    # Ensure image_alt is preserved
+                                    if 'images' in detailed_product and isinstance(detailed_product['images'], list):
+                                        for j, img in enumerate(detailed_product['images']):
+                                            # Always use basic_product image_alt if available
+                                            if 'image_alt' in basic_product and basic_product['image_alt']:
+                                                img['alt'] = basic_product['image_alt']
+                                            # Also ensure URL and thumbnail are from basic_product if available
+                                            if 'image_url' in basic_product and basic_product['image_url']:
+                                                img['url'] = basic_product['image_url']
+                                                img['thumbnail'] = basic_product['image_url']
+                                            # If still no alt text, use product name
+                                            if not img.get('alt'):
+                                                img['alt'] = basic_product.get('title', basic_product.get('name', 'Product Image'))
+                                    elif 'image_alt' in basic_product:
+                                        # If no images array, create one
+                                        detailed_product['images'] = [{
+                                            'url': basic_product.get('image_url', ''),
+                                            'alt': basic_product.get('image_alt', ''),
+                                            'thumbnail': basic_product.get('image_url', '')
+                                        }]
+                        
                         platform_result = {
                             "site": platform_name,
                             "query": query,
-                            "total_products": len(basic_products),
-                            "products": basic_products,  # Map basic_products to products for API compatibility
+                            "total_products": len(final_products),
+                            "products": final_products,  # Enhanced products with MRP, discounts, etc.
                             "basic_products": basic_products,
-                            "detailed_products": products.get('detailed_products', [])
+                            "detailed_products": detailed_products,
+                            "enhanced_features": {
+                                "mrp_extraction": any('mrp' in str(p) for p in final_products),
+                                "discount_calculation": any('discount_amount' in str(p) for p in final_products),
+                                "rating_extraction": any('rating' in str(p) for p in final_products)
+                            }
                         }
                     elif 'products' in products:
-                        # Standard format with products key
+                        # Standard format with products key (Flipkart enhanced format)
+                        product_list = products.get('products', [])
                         platform_result = {
                             "site": platform_name,
                             "query": query,
-                            "total_products": len(products.get('products', [])),
-                            "products": products.get('products', [])
+                            "total_products": len(product_list),
+                            "products": product_list,
+                            "enhanced_features": {
+                                "mrp_extraction": any('mrp' in str(p) for p in product_list),
+                                "discount_calculation": any('discount_amount' in str(p) for p in product_list),
+                                "rating_extraction": any('rating' in str(p) for p in product_list)
+                            }
                         }
                     else:
                         # Direct product list
+                        product_list = products if isinstance(products, list) else []
                         platform_result = {
                             "site": platform_name,
                             "query": query,
-                            "total_products": len(products) if isinstance(products, list) else 0,
-                            "products": products if isinstance(products, list) else []
+                            "total_products": len(product_list),
+                            "products": product_list,
+                            "enhanced_features": {
+                                "mrp_extraction": any('mrp' in str(p) for p in product_list),
+                                "discount_calculation": any('discount_amount' in str(p) for p in product_list),
+                                "rating_extraction": any('rating' in str(p) for p in product_list)
+                            }
                         }
                 elif isinstance(products, list):
                     # Direct list of products
@@ -154,7 +204,12 @@ class IntelligentSearchSystem:
                         "site": platform_name,
                         "query": query,
                         "total_products": len(products),
-                        "products": products
+                        "products": products,
+                        "enhanced_features": {
+                            "mrp_extraction": any('mrp' in str(p) for p in products),
+                            "discount_calculation": any('discount_amount' in str(p) for p in products),
+                            "rating_extraction": any('rating' in str(p) for p in products)
+                        }
                     }
                 else:
                     logger.warning(f"⚠️ {platform_name}: Unexpected return format")

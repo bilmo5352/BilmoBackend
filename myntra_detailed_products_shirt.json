@@ -1,25 +1,36 @@
 {
-  "query": "shirt",
-  "search_url": "https://www.myntra.com/shirt?rawQuery=shirt",
-  "total_products": 2,
   "products": [
     {
-      "name": "glitchez Poplin Oversized Shirt",
-      "price": "Rs. 659",
-      "brand": "Clothing",
-      "category": "Shirt",
-      "rating": "",
-      "link": "https://www.myntra.com/shirts/glitchez/glitchez-poplin-oversized-shirt/32528990/buy",
-      "images": []
+      "title": "The Indian Garage Co",
+      "name": "The Indian Garage Co",
+      "price": "Rs. 560",
+      "link": "https://www.myntra.com/shirts/the+indian+garage+co/the-indian-garage-co-men-black--white-buffalo-checks-checked-cotton-casual-shirt/16550636/buy",
+      "rating": null,
+      "image_url": "https://assets.myntassets.com/dpr_2,q_60,w_210,c_limit,fl_progressive/assets/images/16550636/2022/3/11/6e995f73-6b2d-4870-8f95-0d2535dab0e01646990938790-The-Indian-Garage-Co-Men-Shirts-3681646990938063-1.jpg",
+      "image_alt": "The Indian Garage Co Men Black & White Buffalo Checks Checked Cotton Casual Shirt",
+      "images": [
+        {
+          "url": "https://assets.myntassets.com/dpr_2,q_60,w_210,c_limit,fl_progressive/assets/images/16550636/2022/3/11/6e995f73-6b2d-4870-8f95-0d2535dab0e01646990938790-The-Indian-Garage-Co-Men-Shirts-3681646990938063-1.jpg",
+          "alt": "The Indian Garage Co Men Black & White Buffalo Checks Checked Cotton Casual Shirt",
+          "thumbnail": "https://assets.myntassets.com/dpr_2,q_60,w_210,c_limit,fl_progressive/assets/images/16550636/2022/3/11/6e995f73-6b2d-4870-8f95-0d2535dab0e01646990938790-The-Indian-Garage-Co-Men-Shirts-3681646990938063-1.jpg"
+        }
+      ]
     },
     {
-      "name": "Beyoung Casual Shirt",
-      "price": "Rs. 797",
-      "brand": "Clothing",
-      "category": "Shirt",
-      "rating": "",
-      "link": "https://www.myntra.com/shirts/beyoung/beyoung-men-casual-shirt/33976596/buy",
-      "images": []
+      "title": "Ramraj",
+      "name": "Ramraj",
+      "price": "Rs. 685",
+      "link": "https://www.myntra.com/shirts/ramraj/ramraj-men-classic-opaque-formal-shirt/31403798/buy",
+      "rating": null,
+      "image_url": "https://assets.myntassets.com/dpr_2,q_60,w_210,c_limit,fl_progressive/assets/images/2024/OCTOBER/24/U9yffkMK_b00a43d97b2d43a68f742e9fa7c0490b.jpg",
+      "image_alt": "Ramraj Men Classic Opaque Formal Shirt",
+      "images": [
+        {
+          "url": "https://assets.myntassets.com/dpr_2,q_60,w_210,c_limit,fl_progressive/assets/images/2024/OCTOBER/24/U9yffkMK_b00a43d97b2d43a68f742e9fa7c0490b.jpg",
+          "alt": "Ramraj Men Classic Opaque Formal Shirt",
+          "thumbnail": "https://assets.myntassets.com/dpr_2,q_60,w_210,c_limit,fl_progressive/assets/images/2024/OCTOBER/24/U9yffkMK_b00a43d97b2d43a68f742e9fa7c0490b.jpg"
+        }
+      ]
     }
   ]
 }

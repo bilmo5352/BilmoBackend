@@ -71,14 +71,18 @@ async function handleSearch(e) {
     hideMessages();
     
     try {
+        const timestamp = Date.now();
         const url = currentPlatform === 'all' 
-            ? `${API_BASE_URL}/search?q=${encodeURIComponent(query)}`
-            : `${API_BASE_URL}/search/${currentPlatform}?q=${encodeURIComponent(query)}`;
+            ? `${API_BASE_URL}/search?q=${encodeURIComponent(query)}&force_refresh=true&_t=${timestamp}`
+            : `${API_BASE_URL}/search/${currentPlatform}?q=${encodeURIComponent(query)}&force_refresh=true&_t=${timestamp}`;
         
         const response = await fetch(url, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
             },
         });
         
@@ -173,16 +177,34 @@ function displayResults(data) {
 function createProductCard(product) {
     const platformColor = platformColors[product.platform] || '#667eea';
     
+    // Handle different image structures
+    let imageUrl = '';
+    let imageAlt = '';
+    
+    if (product.image_url) {
+        // Direct image_url field
+        imageUrl = product.image_url;
+        imageAlt = product.image_alt || product.title || product.name || 'Product Image';
+    } else if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+        // Images array structure from smart API
+        imageUrl = product.images[0].url || '';
+        imageAlt = product.images[0].alt || product.title || product.name || 'Product Image';
+    } else if (product.image) {
+        // Fallback to image field
+        imageUrl = product.image;
+        imageAlt = product.title || product.name || 'Product Image';
+    }
+    
     return `
         <div class="product-card">
             <div class="product-platform platform-${product.platform}" style="background-color: ${platformColor}">
                 ${product.platform?.toUpperCase() || 'UNKNOWN'}
             </div>
             
-            ${product.image ? `
+            ${imageUrl ? `
                 <img 
-                    src="${product.image}" 
-                    alt="${product.title || product.name || 'Product'}"
+                    src="${imageUrl}" 
+                    alt="${imageAlt}"
                     class="product-image"
                     onerror="this.style.display='none'"
                 >
@@ -201,7 +223,7 @@ function createProductCard(product) {
             ${product.rating ? `
                 <div class="product-rating">
                     ⭐ ${product.rating}
-                    ${product.reviews ? `<span>(${product.reviews} reviews)</span>` : ''}
+                    ${product.reviews_count ? `<span>(${product.reviews_count} reviews)</span>` : ''}
                 </div>
             ` : ''}
             

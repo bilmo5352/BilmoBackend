@@ -693,10 +693,11 @@ def search_flipkart(query: str, headless: bool = False, max_results: int = 8):
                     try:
                         card_text = card.text.strip()
                         lines = card_text.split('\n')
+                        # First pass: look for actual product names (longer, descriptive text)
                         for line in lines:
                             line = line.strip()
-                            # Skip discount percentages, prices, delivery info, reviews, etc.
-                            if (line and len(line) > 5 and len(line) < 100 and 
+                            # Look for product names (longer text, not variants or prices)
+                            if (line and len(line) > 15 and len(line) < 100 and 
                                 not line.startswith('₹') and 
                                 not line.startswith('%') and 
                                 not line.endswith('%') and
@@ -708,51 +709,192 @@ def search_flipkart(query: str, headless: bool = False, max_results: int = 8):
                                 'free' not in line.lower() and
                                 ':' not in line and  # Skip time formats
                                 not line.replace(':', '').replace('h', '').replace('m', '').replace('s', '').replace(' ', '').isdigit() and
+                                not line.lower().startswith('pack of') and  # Skip variants
+                                not line.lower().startswith('buy') and
+                                not line.lower().startswith('top discount') and
+                                not line.lower().startswith('sponsored') and
+                                not line.lower().startswith('assured') and
                                 line not in ['Bestseller', 'Add to Compare', 'View Product', 'Currently unavailable', 'Out of stock', 'Not available']):  # Skip common UI text
                                 product_info['title'] = line
                                 break
+                        
+                        # Fallback: if no product name found, use the first meaningful line
+                        if not product_info.get('title'):
+                            for line in lines:
+                                line = line.strip()
+                                if (line and len(line) > 5 and len(line) < 100 and 
+                                    not line.startswith('₹') and 
+                                    not line.startswith('%') and 
+                                    not line.endswith('%') and
+                                    not line.endswith('off') and
+                                    'off' not in line.lower() and 
+                                    'delivery' not in line.lower() and 
+                                    'reviews' not in line.lower() and
+                                    'rating' not in line.lower() and
+                                    'free' not in line.lower() and
+                                    ':' not in line and  # Skip time formats
+                                    not line.replace(':', '').replace('h', '').replace('m', '').replace('s', '').replace(' ', '').isdigit() and
+                                    not line.lower().startswith('buy') and
+                                    not line.lower().startswith('top discount') and
+                                    line not in ['Bestseller', 'Add to Compare', 'View Product', 'Currently unavailable', 'Out of stock', 'Not available']):  # Skip common UI text
+                                    product_info['title'] = line
+                                    break
                     except:
                         pass
                 
-                # Extract price from card text - it's usually near the end
-                if not product_info.get('price'):
-                    try:
-                        for line in lines:
-                            line = line.strip()
-                            if line.startswith('₹') and len(line) < 20:
-                                # Clean up price (remove extra text)
-                                price = line.split()[0] if line.split() else line
-                                product_info['price'] = price
-                                break
-                    except:
-                        pass
+                # Extract price information - Enhanced to get MRP and discounts
+                try:
+                    import re
+                    
+                    # Look for price patterns in each line
+                    for line in lines:
+                        line = line.strip()
+                        
+                        # Look for multiple prices in one line like "₹1,732₹2,54731% off"
+                        # Enhanced approach to handle various price formats
+                        if '₹' in line and line.count('₹') >= 2:
+                            # Use regex to find all price patterns more accurately
+                            price_pattern = r'₹[\d,]+'
+                            all_prices = re.findall(price_pattern, line)
+                            
+                            if len(all_prices) >= 2:
+                                # Clean up prices - be more careful about removing discount percentages
+                                clean_prices = []
+                                for i, price in enumerate(all_prices):
+                                    # For the last price, check if it has discount percentage attached
+                                    if i == len(all_prices) - 1:
+                                        # Look for pattern like ₹54948 where 48 might be discount %
+                                        # Only remove if the last 2 digits are reasonable discount percentage
+                                        price_num = price.replace('₹', '').replace(',', '')
+                                        if len(price_num) > 4:
+                                            last_two = price_num[-2:]
+                                            if last_two.isdigit() and 1 <= int(last_two) <= 95:
+                                                # This looks like discount percentage, remove it
+                                                clean_price_num = price_num[:-2]
+                                                clean_prices.append('₹' + clean_price_num)
+                                            else:
+                                                clean_prices.append(price)
+                                        else:
+                                            clean_prices.append(price)
+                                    else:
+                                        clean_prices.append(price)
+                                
+                                if len(clean_prices) >= 2:
+                                    product_info['price'] = clean_prices[0]
+                                    product_info['mrp'] = clean_prices[1]
+                                    print(f"    Found current price: {clean_prices[0]}")
+                                    print(f"    Found MRP: {clean_prices[1]}")
+                                    
+                                    # Look for discount percentage in the same line
+                                    discount_match = re.search(r'(\d{1,2})%', line)
+                                    if discount_match:
+                                        discount_val = int(discount_match.group(1))
+                                        if 1 <= discount_val <= 95:
+                                            product_info['discount_percentage'] = discount_match.group(1) + '%'
+                                            print(f"    Found discount: {product_info['discount_percentage']}")
+                                    
+                                    # Calculate discount amount if we have both prices
+                                    try:
+                                        current_num = float(product_info['price'].replace('₹', '').replace(',', ''))
+                                        mrp_num = float(product_info['mrp'].replace('₹', '').replace(',', ''))
+                                        if mrp_num > current_num:
+                                            discount_amount = mrp_num - current_num
+                                            product_info['discount_amount'] = f"₹{discount_amount:,.0f}"
+                                            print(f"    Calculated discount amount: {product_info['discount_amount']}")
+                                    except Exception as e:
+                                        print(f"    Error calculating discount: {e}")
+                                    break
+                        
+                        # Fallback: look for single price
+                        elif line.startswith('₹') and len(line) < 20 and not product_info.get('price'):
+                            price_match = re.search(r'₹[\d,]+', line)
+                            if price_match:
+                                product_info['price'] = price_match.group(0)
+                                print(f"    Found current price: {price_match.group(0)}")
+                        
+                        # Look for standalone discount percentage
+                        elif ('%' in line and not product_info.get('discount_percentage')):
+                            discount_match = re.search(r'(\d{1,2})%', line)
+                            if discount_match:
+                                discount_val = int(discount_match.group(1))
+                                if 1 <= discount_val <= 95:
+                                    product_info['discount_percentage'] = discount_match.group(1) + '%'
+                                    print(f"    Found discount: {product_info['discount_percentage']}")
+                except:
+                    pass
                 
-                # Extract rating from card text - look for rating format like "4.149 Ratings & 3 Reviews"
+                # Extract rating from card text - enhanced to catch more rating formats
                 if not product_info.get('rating'):
                     try:
+                        import re
                         for line in lines:
                             line = line.strip()
-                            if 'rating' in line.lower() and 'review' in line.lower():
-                                # Extract the rating number (e.g., "4.1" from "4.149 Ratings & 3 Reviews")
-                                import re
+                            
+                            # Look for patterns like "4.1(590)" or "4.1(21,214)" - most common format
+                            rating_match = re.search(r'(\d+\.?\d*)\s*\(([\d,]+)\)', line)
+                            if rating_match:
+                                rating = rating_match.group(1)
+                                review_count = rating_match.group(2)
+                                if float(rating) <= 5.0:
+                                    product_info['rating'] = rating
+                                    product_info['reviews_count'] = f"{rating}({review_count})"
+                                    print(f"    Found rating: {rating} with {review_count} reviews")
+                                    break
+                            
+                            # Look for patterns like "4.1 Ratings & 3 Reviews"
+                            elif 'rating' in line.lower() and 'review' in line.lower():
                                 rating_match = re.search(r'(\d+\.?\d*)', line)
                                 if rating_match:
                                     rating = rating_match.group(1)
                                     if float(rating) <= 5.0:
                                         product_info['rating'] = rating
                                         product_info['reviews_count'] = line
+                                        print(f"    Found rating: {rating} with reviews")
                                         break
+                            
+                            # Look for standalone rating numbers (fallback)
+                            elif re.match(r'^\d+\.?\d*$', line) and len(line) <= 4:
+                                try:
+                                    rating_val = float(line)
+                                    if 1.0 <= rating_val <= 5.0:
+                                        product_info['rating'] = line
+                                        print(f"    Found standalone rating: {line}")
+                                        break
+                                except:
+                                    pass
                     except:
                         pass
                 
-                # Extract image URL (like Meesho)
+                # Extract image URL with better quality
                 try:
                     img_elem = card.find_element(By.TAG_NAME, "img")
-                    product_info['image_url'] = img_elem.get_attribute('src') or ''
-                    product_info['image_alt'] = img_elem.get_attribute('alt') or ''
+                    img_src = img_elem.get_attribute('src') or ''
+                    img_alt = img_elem.get_attribute('alt') or ''
+                    
+                    # Improve image quality by replacing quality parameters
+                    if img_src and 'q=' in img_src:
+                        # Replace quality parameter to get higher resolution
+                        high_quality_src = img_src.replace('q=70', 'q=100').replace('q=50', 'q=100').replace('q=80', 'q=100')
+                        product_info['image_url'] = high_quality_src
+                        product_info['image_thumbnail'] = img_src  # Keep original as thumbnail
+                    else:
+                        product_info['image_url'] = img_src
+                        product_info['image_thumbnail'] = img_src
+                    
+                    product_info['image_alt'] = img_alt
+                    
+                    # Use image alt text as product title if we don't have a good title yet
+                    if img_alt and (not product_info.get('title') or 
+                                   product_info.get('title', '').lower().startswith('pack of') or
+                                   len(product_info.get('title', '')) < 10):
+                        product_info['title'] = img_alt
+                        print(f"    Using image alt as title: {img_alt[:50]}...")
+                    else:
+                        print(f"    Found image: {img_alt[:50]}...")
                 except:
                     product_info['image_url'] = ''
                     product_info['image_alt'] = ''
+                    product_info['image_thumbnail'] = ''
                 
                 # Extract product link - the card itself might be the link
                 if not product_info.get('link'):
@@ -813,7 +955,7 @@ def search_flipkart(query: str, headless: bool = False, max_results: int = 8):
                             if title_words:
                                 # Take first word if it's not a common word or discount percentage
                                 first_word = title_words[0].strip()
-                                common_words = ["Modern", "Latest", "New", "Best", "Top", "Great", "Super", "Ultra", "Premium", "Quality", "Good", "Nice", "Cool", "Hot", "Trendy", "Stylish", "Fashionable", "Elegant", "Beautiful", "Amazing", "Wonderful", "Excellent", "Perfect", "Special", "Unique", "Exclusive", "Limited", "Classic", "Vintage", "Retro", "Contemporary", "Traditional", "Casual", "Formal", "Party", "Wedding", "Office", "Work", "Daily", "Everyday", "Weekend", "Holiday", "Summer", "Winter", "Spring", "Fall", "Seasonal", "Year", "Round"]
+                                common_words = ["Modern", "Latest", "New", "Best", "Top", "Great", "Super", "Ultra", "Premium", "Quality", "Good", "Nice", "Cool", "Hot", "Trendy", "Stylish", "Fashionable", "Elegant", "Beautiful", "Amazing", "Wonderful", "Excellent", "Perfect", "Special", "Unique", "Exclusive", "Limited", "Classic", "Vintage", "Retro", "Contemporary", "Traditional", "Casual", "Formal", "Party", "Wedding", "Office", "Work", "Daily", "Everyday", "Weekend", "Holiday", "Summer", "Winter", "Spring", "Fall", "Seasonal", "Year", "Round", "MSI", "Acer", "Asus", "HP", "Dell", "Lenovo"]
                                 
                                 # Skip discount percentages and numbers
                                 if (first_word not in common_words and 
@@ -822,43 +964,62 @@ def search_flipkart(query: str, headless: bool = False, max_results: int = 8):
                                     not first_word.endswith('%') and
                                     not first_word.endswith('off')):
                                     product_info['brand'] = first_word
+                                elif first_word in ["MSI", "Acer", "Asus"]:
+                                    # These are valid laptop brands
+                                    product_info['brand'] = first_word
                 except:
                     pass
                 
-                # Extract category (try to infer from title) (like Meesho)
+                # Extract category (try to infer from title) - Enhanced classification
                 try:
                     if product_info.get('title'):
                         title_lower = product_info['title'].lower()
-                        if 'mobile' in title_lower or 'phone' in title_lower or 'smartphone' in title_lower or 'iphone' in title_lower or 'galaxy' in title_lower or 'android' in title_lower:
-                            product_info['category'] = 'Mobile'
-                        elif 'laptop' in title_lower or 'computer' in title_lower or 'notebook' in title_lower:
+                        
+                        # Electronics categories (prioritize specific terms)
+                        if any(term in title_lower for term in ['laptop', 'notebook', 'ultrabook', 'gaming laptop', 'thin laptop', 'aspire', 'prestige', 'studio']):
                             product_info['category'] = 'Laptop'
-                        elif 'tablet' in title_lower or 'ipad' in title_lower:
+                        elif any(term in title_lower for term in ['book4', 'galaxy book', 'motobook']):
+                            # Specific laptop models
+                            product_info['category'] = 'Laptop'
+                        elif any(term in title_lower for term in ['mobile', 'smartphone', 'phone', 'iphone', 'android phone']):
+                            product_info['category'] = 'Mobile'
+                        elif any(term in title_lower for term in ['tablet', 'ipad']):
                             product_info['category'] = 'Tablet'
-                        elif 'headphone' in title_lower or 'earphone' in title_lower or 'speaker' in title_lower:
+                        elif any(term in title_lower for term in ['headphone', 'earphone', 'speaker', 'audio', 'bluetooth']):
                             product_info['category'] = 'Audio'
-                        elif 'watch' in title_lower or 'smartwatch' in title_lower:
+                        elif any(term in title_lower for term in ['watch', 'smartwatch', 'fitness band']):
                             product_info['category'] = 'Watch'
-                        elif 'camera' in title_lower or 'dslr' in title_lower:
+                        elif any(term in title_lower for term in ['camera', 'dslr', 'lens']):
                             product_info['category'] = 'Camera'
-                        elif 'saree' in title_lower:
+                        elif any(term in title_lower for term in ['tv', 'television', 'smart tv']):
+                            product_info['category'] = 'TV'
+                        elif any(term in title_lower for term in ['refrigerator', 'fridge', 'washing machine', 'ac', 'air conditioner']):
+                            product_info['category'] = 'Appliances'
+                        elif any(term in title_lower for term in ['furniture', 'sofa', 'bed', 'table', 'chair']):
+                            product_info['category'] = 'Furniture'
+                        # Clothing categories
+                        elif any(term in title_lower for term in ['saree', 'sari']):
                             product_info['category'] = 'Saree'
-                        elif 'shirt' in title_lower:
+                        elif any(term in title_lower for term in ['shirt', 'formal shirt', 'casual shirt']):
                             product_info['category'] = 'Shirt'
-                        elif 'pant' in title_lower:
+                        elif any(term in title_lower for term in ['pant', 'trouser', 'formal pant']):
                             product_info['category'] = 'Pant'
-                        elif 'shoe' in title_lower:
-                            product_info['category'] = 'Shoe'
-                        elif 'dress' in title_lower:
+                        elif any(term in title_lower for term in ['shoe', 'sneaker', 'boot', 'sandal', 'heel']):
+                            product_info['category'] = 'Shoes'
+                        elif any(term in title_lower for term in ['dress', 'gown', 'frock']):
                             product_info['category'] = 'Dress'
-                        elif 'kurta' in title_lower:
+                        elif any(term in title_lower for term in ['kurta', 'kurti', 'ethnic wear']):
                             product_info['category'] = 'Kurta'
-                        elif 'jean' in title_lower:
+                        elif any(term in title_lower for term in ['jean', 'denim', 'jeans']):
                             product_info['category'] = 'Jeans'
-                        elif 'top' in title_lower:
+                        elif any(term in title_lower for term in ['top', 'tshirt', 't-shirt', 'blouse']):
                             product_info['category'] = 'Top'
-                        elif 'bottom' in title_lower:
+                        elif any(term in title_lower for term in ['bottom', 'legging', 'palazzo']):
                             product_info['category'] = 'Bottom'
+                        elif any(term in title_lower for term in ['bag', 'purse', 'handbag', 'backpack']):
+                            product_info['category'] = 'Bags'
+                        elif any(term in title_lower for term in ['jewelry', 'necklace', 'ring', 'bracelet', 'earring']):
+                            product_info['category'] = 'Jewelry'
                         else:
                             product_info['category'] = 'General'
                 except:
@@ -876,15 +1037,94 @@ def search_flipkart(query: str, headless: bool = False, max_results: int = 8):
                 except:
                     pass
                 
-                # Extract availability (like Meesho)
+                # Extract availability and delivery information - Enhanced
                 try:
                     card_text = card.text.strip()
                     lines = card_text.split('\n')
+                    availability_found = False
+                    delivery_found = False
+                    
                     for line in lines:
                         line = line.strip()
-                        if 'delivery' in line.lower() or 'stock' in line.lower() or 'available' in line.lower():
+                        
+                        # Look for availability status
+                        if not availability_found and any(term in line.lower() for term in ['delivery', 'stock', 'available', 'in stock', 'out of stock', 'currently unavailable', 'not available', 'bestseller', 'top discount']):
                             product_info['availability'] = line
+                            availability_found = True
+                            print(f"    Found availability: {line}")
+                        
+                        # Look for delivery information
+                        elif not delivery_found and any(term in line.lower() for term in ['free delivery', 'express delivery', 'same day delivery', 'next day delivery', 'delivery by', 'shipping']):
+                            product_info['delivery'] = line
+                            delivery_found = True
+                            print(f"    Found delivery: {line}")
+                        
+                        # Look for special offers or tags
+                        elif any(term in line.lower() for term in ['top discount', 'bestseller', 'trending', 'new', 'launch', 'offer', 'deal']):
+                            if not product_info.get('special_offers'):
+                                product_info['special_offers'] = []
+                            product_info['special_offers'].append(line)
+                            print(f"    Found special offer: {line}")
+                        
+                        # If we found both, we can break
+                        if availability_found and delivery_found:
                             break
+                except:
+                    pass
+                
+                # Extract product description and additional details
+                try:
+                    card_text = card.text.strip()
+                    lines = card_text.split('\n')
+                    
+                    # Look for product descriptions (longer text that's not price/rating)
+                    for line in lines:
+                        line = line.strip()
+                        if (len(line) > 20 and len(line) < 200 and 
+                            not line.startswith('₹') and 
+                            not re.match(r'^\d+\.?\d*\(\d+,\d+\)$', line) and  # Not rating format
+                            not re.match(r'^\d+\.?\d*$', line) and  # Not standalone number
+                            not line.lower().startswith('pack of') and
+                            'channel' not in line.lower() and
+                            'ml' not in line.lower() and
+                            'glass' not in line.lower() and
+                            'aluminium' not in line.lower()):
+                            
+                            if not product_info.get('description'):
+                                product_info['description'] = line
+                                print(f"    Found description: {line[:50]}...")
+                                break
+                except:
+                    pass
+                
+                # Extract specifications from card text
+                try:
+                    specifications = []
+                    card_text = card.text.strip()
+                    lines = card_text.split('\n')
+                    
+                    # Look for specification-like lines (usually contain technical terms)
+                    spec_keywords = ['gb', 'ram', 'storage', 'processor', 'intel', 'amd', 'windows', 'android', 'ios', 
+                                   'display', 'screen', 'battery', 'camera', 'bluetooth', 'wifi', 'usb', 'hdmi']
+                    
+                    for line in lines:
+                        line = line.strip()
+                        # Skip prices, ratings, and UI text
+                        if (line and len(line) > 10 and len(line) < 100 and
+                            not line.startswith('₹') and 
+                            not line.startswith('%') and 
+                            not line.endswith('%') and
+                            'rating' not in line.lower() and
+                            'review' not in line.lower() and
+                            'delivery' not in line.lower() and
+                            'stock' not in line.lower() and
+                            'available' not in line.lower() and
+                            any(keyword in line.lower() for keyword in spec_keywords)):
+                            specifications.append(line)
+                    
+                    if specifications:
+                        product_info['specifications'] = specifications[:5]  # Limit to first 5 specs
+                        print(f"    Found specifications: {len(specifications)} items")
                 except:
                     pass
                 
@@ -905,12 +1145,26 @@ def search_flipkart(query: str, headless: bool = False, max_results: int = 8):
             for i, product in enumerate(products_info, 1):
                 print(f"\n{i}. {product.get('title', 'Title not found')}")
                 print(f"   Price: {product.get('price', 'Price not found')}")
+                if product.get('mrp'):
+                    print(f"   MRP: {product['mrp']}")
+                if product.get('discount_percentage'):
+                    print(f"   Discount: {product['discount_percentage']}")
+                if product.get('discount_amount'):
+                    print(f"   You Save: {product['discount_amount']}")
                 if product.get('rating'):
                     print(f"   Rating: {product['rating']}")
+                if product.get('reviews_count'):
+                    print(f"   Reviews: {product['reviews_count']}")
                 if product.get('brand'):
                     print(f"   Brand: {product['brand']}")
                 if product.get('category'):
                     print(f"   Category: {product['category']}")
+                if product.get('availability'):
+                    print(f"   Availability: {product['availability']}")
+                if product.get('delivery'):
+                    print(f"   Delivery: {product['delivery']}")
+                if product.get('specifications'):
+                    print(f"   Key Specs: {', '.join(product['specifications'][:3])}")
                 if product.get('link'):
                     print(f"   Link: {product['link']}")
                 if product.get('image_url'):
@@ -954,11 +1208,20 @@ def search_flipkart(query: str, headless: bool = False, max_results: int = 8):
                     detailed_product = {
                         "name": product.get('title', ''),
                         "price": product.get('price', ''),
+                        "mrp": product.get('mrp', ''),
+                        "discount_percentage": product.get('discount_percentage', ''),
+                        "discount_amount": product.get('discount_amount', ''),
                         "brand": product.get('brand', ''),
                         "category": product.get('category', ''),
                         "rating": product.get('rating', ''),
+                        "reviews_count": product.get('reviews_count', ''),
+                        "description": product.get('description', ''),
+                        "availability": product.get('availability', ''),
+                        "delivery": product.get('delivery', ''),
+                        "special_offers": product.get('special_offers', []),
+                        "specifications": product.get('specifications', []),
                         "link": product.get('link', ''),
-                        "images": [{"url": product.get('image_url', ''), "alt": product.get('image_alt', ''), "thumbnail": product.get('image_url', '')}] if product.get('image_url') else []
+                        "images": [{"url": product.get('image_url', ''), "alt": product.get('image_alt', ''), "thumbnail": product.get('image_thumbnail', '')}] if product.get('image_url') else []
                     }
                     
                     detailed_products.append(detailed_product)
@@ -977,9 +1240,27 @@ def search_flipkart(query: str, headless: bool = False, max_results: int = 8):
                 for i, product in enumerate(detailed_products, 1):
                     print(f"\n{i}. {product.get('name', 'Name not found')}")
                     print(f"   Price: {product.get('price', 'Price not found')}")
+                    if product.get('mrp'):
+                        print(f"   MRP: {product['mrp']}")
+                    if product.get('discount_percentage'):
+                        print(f"   Discount: {product['discount_percentage']}")
+                    if product.get('discount_amount'):
+                        print(f"   You Save: {product['discount_amount']}")
                     print(f"   Brand: {product.get('brand', 'Brand not found')}")
                     print(f"   Category: {product.get('category', 'Category not found')}")
                     print(f"   Rating: {product.get('rating', 'Rating not found')}")
+                    if product.get('reviews_count'):
+                        print(f"   Reviews: {product['reviews_count']}")
+                    if product.get('description'):
+                        print(f"   Description: {product['description'][:100]}...")
+                    if product.get('availability'):
+                        print(f"   Availability: {product['availability']}")
+                    if product.get('delivery'):
+                        print(f"   Delivery: {product['delivery']}")
+                    if product.get('special_offers'):
+                        print(f"   Special Offers: {', '.join(product['special_offers'])}")
+                    if product.get('specifications'):
+                        print(f"   Key Specs: {', '.join(product['specifications'][:3])}")
                     print(f"   Images: {len(product.get('images', []))} images found")
                     if product.get('images'):
                         print(f"   Main Image: {product['images'][0]['url']}")

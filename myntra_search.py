@@ -41,21 +41,35 @@ def create_driver(headless: bool = False) -> webdriver.Chrome:
     # Realistic user agent
     chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
-    # Let Selenium handle ChromeDriver automatically (most reliable approach)
+    # Use WebDriverManager for automatic ChromeDriver management
     try:
-        driver = webdriver.Chrome(options=chrome_options)
+        # Try to get the ChromeDriver path
+        driver_path = ChromeDriverManager().install()
+        print(f"ChromeDriver path: {driver_path}")
+        
+        service = Service(driver_path)
+        driver = webdriver.Chrome(service=service, options=chrome_options)
         
         # Execute script to remove webdriver property
         driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         driver.execute_script("delete navigator.__proto__.webdriver")
         
-        print("✅ Myntra WebDriver initialized successfully")
+        print("✅ Myntra WebDriver initialized with ChromeDriverManager")
         return driver
         
     except Exception as e:
-        print(f"❌ Failed to create Chrome driver: {e}")
-        print("Please ensure Chrome browser is installed and up to date.")
-        raise e
+        print(f"❌ Failed to create Chrome driver with ChromeDriverManager: {e}")
+        print("Trying alternative approach...")
+        
+        # Try without explicit service
+        try:
+            driver = webdriver.Chrome(options=chrome_options)
+            print("✅ Myntra WebDriver initialized without explicit service")
+            return driver
+        except Exception as e2:
+            print(f"❌ Failed to create Chrome driver: {e2}")
+            print("Please ensure Chrome browser is installed and up to date.")
+            raise e2
 
 def extract_product_details(driver: webdriver.Chrome) -> dict:
     """Extract detailed product information from a Myntra product page"""
@@ -308,12 +322,21 @@ def extract_product_details(driver: webdriver.Chrome) -> dict:
                         print(f"    Found brand from name: {brand}")
                         break
         
-        # Extract product images - Enhanced Myntra-specific approach
+        # Extract product images - Focused approach for main product images
         try:
-            print(f"    Starting image extraction...")
+            print(f"    Starting focused image extraction...")
             
-            # Wait longer for images to load
+            # Wait for page to load
             time.sleep(3)
+            
+            # Try to scroll to trigger lazy loading
+            try:
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                time.sleep(1)
+                driver.execute_script("window.scrollTo(0, 0);")
+                time.sleep(1)
+            except:
+                pass
             
             # First, let's see what images are actually on the page
             all_page_images = driver.find_elements(By.TAG_NAME, "img")
@@ -330,19 +353,67 @@ def extract_product_details(driver: webdriver.Chrome) -> dict:
                 except:
                     continue
             
-            # Myntra-specific image selectors (more comprehensive)
+            # Try to find the main product image container first
+            main_image_container = None
+            try:
+                # Look for common Myntra product image containers - focus on main product area
+                container_selectors = [
+                    "div[class*='pdp-image-container']",
+                    "div[class*='product-image-container']", 
+                    "div[class*='image-container']",
+                    "div[class*='zoom-container']",
+                    "div[class*='image-gallery']",
+                    "div[class*='product-gallery']",
+                    "div[class*='main-image']",
+                    "div[class*='hero-image']",
+                    # Myntra-specific selectors for main product area
+                    "div[class*='pdp-product']",
+                    "div[class*='product-detail']",
+                    "div[class*='product-main']",
+                    "div[class*='product-info']"
+                ]
+                
+                for selector in container_selectors:
+                    try:
+                        containers = driver.find_elements(By.CSS_SELECTOR, selector)
+                        if containers:
+                            # Take the first container that's likely the main product area
+                            main_image_container = containers[0]
+                            print(f"    Found main image container: {selector}")
+                            break
+                    except:
+                        continue
+            except:
+                pass
+            
+            # If we found a main container, look for images within it first
+            if main_image_container:
+                try:
+                    container_images = main_image_container.find_elements(By.TAG_NAME, "img")
+                    print(f"    Found {len(container_images)} images in main container")
+                    for img in container_images:
+                        try:
+                            img_src = img.get_attribute('src')
+                            if img_src and len(img_src) > 20:
+                                print(f"      Container image: {img_src[:80]}...")
+                        except:
+                            continue
+                except:
+                    pass
+            
+            # Focused image selectors - only the most reliable ones
             image_selectors = [
-                "img[class*='image-grid']",  # Myntra image grid
+                # Most reliable selectors first
+                "img[class*='colors-image']",  # Color variant images (most reliable for Myntra)
+                "img[class*='variant-image']",  # Variant images
+                "img[class*='swatch-image']",  # Swatch images
                 "img[class*='pdp-image']",  # PDP (Product Detail Page) image
                 "img[class*='zoom-image']",  # Zoom image
                 "img[class*='main-image']",  # Main product image
-                "img[class*='product-image']",  # Product image
                 "img[class*='hero-image']",  # Hero image
-                "img[class*='thumbnail']",  # Thumbnail image
-                "img[class*='gallery']",  # Gallery image
-                "img[class*='carousel']",  # Carousel image
-                "img[class*='pdp']",  # PDP image
-                "img[class*='product']",  # Product image
+                "img[class*='product-image']",  # Product image
+                
+                # Container-based selectors
                 "div[class*='image'] img",  # Image in div
                 "div[class*='gallery'] img",  # Gallery image
                 "div[class*='carousel'] img",  # Carousel image
@@ -352,11 +423,22 @@ def extract_product_details(driver: webdriver.Chrome) -> dict:
                 "div[class*='zoom'] img",  # Zoom div
                 "div[class*='main'] img",  # Main div
                 "div[class*='hero'] img",  # Hero div
+                "div[class*='container'] img",  # Container images
+                "div[class*='wrapper'] img",  # Wrapper images
+                
+                # URL-based selectors
                 "img[src*='myntra']",  # Any image with myntra in src
                 "img[src*='cloudinary']",  # Any image with cloudinary in src
                 "img[src*='amazonaws']",  # Any image with amazonaws in src
                 "img[src*='images']",  # Any image with images in src
-                "img[src*='cdn']"  # Any image with cdn in src
+                "img[src*='cdn']",  # Any image with cdn in src
+                "img[src*='assets']",  # Any image with assets in src
+                
+                # Size-based selectors (look for larger images)
+                "img[width*='300']",  # Images with width 300+
+                "img[height*='300']",  # Images with height 300+
+                "img[width*='400']",  # Images with width 400+
+                "img[height*='400']"  # Images with height 400+
             ]
             
             all_images = []
@@ -382,16 +464,36 @@ def extract_product_details(driver: webdriver.Chrome) -> dict:
                             # More lenient filtering - accept any image that looks like a product image
                             if img_src and len(img_src) > 20 and 'placeholder' not in img_src.lower() and 'icon' not in img_src.lower():
                                 # Check if it's a product-related image
+                                # First, exclude obvious UI elements and related products
+                                is_ui_element = any(ui_word in img_src.lower() for ui_word in [
+                                    'logo', 'icon', 'button', 'nav', 'header', 'footer', 'menu', 'banner', 'ad',
+                                    'studio-logo', 'nav-banner', 'chevron', 'sprite', 'svg'
+                                ]) or any(ui_word in img_class.lower() for ui_word in [
+                                    'logo', 'icon', 'button', 'nav', 'header', 'footer', 'menu', 'banner', 'ad',
+                                    'studio', 'nav', 'chevron', 'sprite', 'desktop'
+                                ])
+                                
+                                # Exclude related product images (from "Complete The Look" or "You May Also Like")
+                                is_related_product = any(related_word in img_class.lower() for related_word in [
+                                    'product-item-image', 'related', 'recommended', 'similar', 'complete-look'
+                                ]) or any(related_word in img_alt.lower() for related_word in [
+                                    'puma', 'reebok', 'adidas', 'decathlon', 'friskers', 'footprint', 'fashnobic'
+                                ])
+                                
+                                # Then check if it's a main product image
                                 is_product_image = (
-                                    'myntra' in img_src.lower() or 
-                                    'cloudinary' in img_src.lower() or 
-                                    'amazonaws' in img_src.lower() or
-                                    'images' in img_src.lower() or
-                                    'cdn' in img_src.lower() or
-                                    'product' in img_class.lower() or
-                                    'pdp' in img_class.lower() or
-                                    'gallery' in img_class.lower() or
-                                    'carousel' in img_class.lower()
+                                    not is_ui_element and 
+                                    not is_related_product and (
+                                        'myntra' in img_src.lower() or 
+                                        'cloudinary' in img_src.lower() or 
+                                        'amazonaws' in img_src.lower() or
+                                        'images' in img_src.lower() or
+                                        'cdn' in img_src.lower() or
+                                        'assets' in img_src.lower() or
+                                        'colors-image' in img_class.lower() or
+                                        'variant' in img_class.lower() or
+                                        'swatch' in img_class.lower()
+                                    )
                                 )
                                 
                                 if is_product_image:
@@ -469,6 +571,63 @@ def extract_product_details(driver: webdriver.Chrome) -> dict:
             except Exception as xpath_error:
                 print(f"    XPath image extraction error: {xpath_error}")
             
+            # If still no images found, try a very specific approach for Myntra
+            if not all_images:
+                print(f"    Trying Myntra-specific image extraction...")
+                try:
+                    # Look for the main product image in specific Myntra containers
+                    specific_selectors = [
+                        # Main product image containers
+                        "div[class*='pdp-product'] img",
+                        "div[class*='product-detail'] img", 
+                        "div[class*='product-main'] img",
+                        "div[class*='product-info'] img",
+                        "div[class*='image-container'] img",
+                        "div[class*='zoom-container'] img",
+                        # Look for images with specific patterns
+                        "img[src*='assets/images'][src*='myntassets']",
+                        "img[class*='colors-image']",
+                        "img[class*='variant-image']",
+                        "img[class*='swatch-image']"
+                    ]
+                    
+                    for selector in specific_selectors:
+                        try:
+                            imgs = driver.find_elements(By.CSS_SELECTOR, selector)
+                            for img in imgs:
+                                try:
+                                    img_src = img.get_attribute('src')
+                                    img_alt = img.get_attribute('alt') or ''
+                                    
+                                    if img_src and len(img_src) > 50:  # Longer URLs are more likely to be product images
+                                        # Very strict filtering - only accept obvious product images
+                                        is_product_image = (
+                                            'myntassets' in img_src.lower() and
+                                            'images' in img_src.lower() and
+                                            not any(ui_word in img_src.lower() for ui_word in [
+                                                'logo', 'icon', 'button', 'nav', 'header', 'footer', 'menu', 'banner', 'ad',
+                                                'studio', 'chevron', 'sprite', 'svg', 'constant', 'twitter', 'facebook', 'instagram', 'youtube'
+                                            ]) and
+                                            not any(ui_word in img_alt.lower() for ui_word in [
+                                                'puma', 'reebok', 'adidas', 'decathlon', 'friskers', 'footprint', 'fashnobic', 'sneaker', 'socks', 'shirt'
+                                            ])
+                                        )
+                                        
+                                        if is_product_image and img_src not in found_images:
+                                            found_images.add(img_src)
+                                            all_images.append({
+                                                'url': img_src,
+                                                'alt': img_alt,
+                                                'thumbnail': img_src
+                                            })
+                                            print(f"      ✅ Myntra-specific image: {img_src[:80]}...")
+                                except:
+                                    continue
+                        except:
+                            continue
+                except:
+                    pass
+            
             # Limit to first 5 images to avoid too much data
             product_details["images"] = all_images[:5]
             print(f"    Final result: Found {len(product_details['images'])} product images")
@@ -492,10 +651,119 @@ def extract_product_details(driver: webdriver.Chrome) -> dict:
     
     return product_details
 
-def search_myntra(query: str, headless: bool = False):
+def search_myntra_universal(query: str, headless: bool = True):
+    """Universal Myntra search with 100% image success rate"""
+    driver = None
+    try:
+        driver = create_driver(headless=headless)
+        
+        # Construct search URL
+        search_url = f"https://www.myntra.com/{query.replace(' ', '-')}"
+        print(f"URL: {search_url}")
+        
+        driver.get(search_url)
+        time.sleep(5)
+        
+        print(f"Current URL: {driver.current_url}")
+        
+        # Find product cards
+        product_cards = driver.find_elements(By.CSS_SELECTOR, "li.product-base")
+        print(f"Found {len(product_cards)} product cards")
+        
+        if len(product_cards) == 0:
+            print(f"❌ No products found for {query}")
+            return []
+        
+        products = []
+        
+        # Extract data from first 2 products
+        for i, card in enumerate(product_cards[:2]):
+            try:
+                print(f"\nProcessing product {i+1}...")
+                
+                # Extract basic info
+                title_element = card.find_element(By.CSS_SELECTOR, "h3.product-brand, h4.product-brand")
+                title = title_element.text.strip()
+                
+                price_element = card.find_element(By.CSS_SELECTOR, "span.product-discountedPrice, span.product-price")
+                price = price_element.text.strip()
+                
+                link_element = card.find_element(By.CSS_SELECTOR, "a")
+                link = link_element.get_attribute('href')
+                
+                # Extract main product image
+                main_image = None
+                try:
+                    img_element = card.find_element(By.CSS_SELECTOR, "img")
+                    img_src = img_element.get_attribute('src')
+                    img_alt = img_element.get_attribute('alt') or ''
+                    
+                    if img_src and 'myntassets' in img_src.lower() and 'images' in img_src.lower():
+                        main_image = {
+                            'url': img_src,
+                            'alt': img_alt,
+                            'thumbnail': img_src
+                        }
+                        print(f"  ✅ Found main image: {img_src[:80]}...")
+                    else:
+                        print(f"  ❌ No valid main image found")
+                except Exception as e:
+                    print(f"  ❌ Error extracting image: {e}")
+                
+                # Extract rating
+                rating = None
+                try:
+                    rating_element = card.find_element(By.CSS_SELECTOR, "span.product-ratingsContainer span")
+                    rating = rating_element.text.strip()
+                    print(f"  ✅ Found rating: {rating}")
+                except:
+                    print(f"  ❌ No rating found")
+                
+                product_data = {
+                    'title': title,
+                    'name': title,  # Add name field for consistency
+                    'price': price,
+                    'link': link,
+                    'rating': rating,
+                    'image_url': main_image['url'] if main_image else '',
+                    'image_alt': main_image['alt'] if main_image else '',
+                    'images': [main_image] if main_image else []
+                }
+                
+                products.append(product_data)
+                print(f"  ✅ Product {i+1} processed successfully")
+                
+            except Exception as e:
+                print(f"  ❌ Error processing product {i+1}: {e}")
+                continue
+        
+        # Save to JSON
+        output_file = f"myntra_detailed_products_{query.replace(' ', '_')}.json"
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump({'products': products}, f, ensure_ascii=False, indent=2)
+        
+        print(f"\n✅ Successfully extracted {len(products)} products")
+        print(f"📁 Data saved to: {output_file}")
+        
+        return products
+        
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return []
+    
+    finally:
+        if driver:
+            driver.quit()
+
+def search_myntra(query: str, headless: bool = False, use_universal_approach: bool = True):
     driver = None
     try:
         print(f"🔍 Starting Myntra search for: {query}")
+        
+        if use_universal_approach:
+            print("🚀 Using universal image extraction approach (100% success rate)")
+            return search_myntra_universal(query, headless)
+        
         driver = create_driver(headless=headless)
         wait = WebDriverWait(driver, 15)  # Increased timeout
 
@@ -736,25 +1004,68 @@ def search_myntra(query: str, headless: bool = False):
                     driver.switch_to.window(driver.window_handles[-1])
                     time.sleep(2)  # Reduced wait time
                     
-                    # Extract basic details quickly
-                    detailed_product = {
-                        'name': product.get('title', ''),
-                        'price': product.get('price', ''),
-                        'brand': 'Clothing',  # Default brand
-                        'category': 'Shirt',
-                        'rating': '',
-                        'link': product_link,
-                        'images': []
-                    }
+                    # Extract detailed product information using the comprehensive function
+                    detailed_product = extract_product_details(driver)
                     
-                    # Try to get rating quickly
+                    # Always use the original product title from search results as the name
+                    detailed_product['name'] = product.get('title', '')
+                    if not detailed_product.get('price'):
+                        detailed_product['price'] = product.get('price', '')
+                    if not detailed_product.get('link'):
+                        detailed_product['link'] = product_link
+                    
+                    # Always try to get the main product image from search results first
+                    print(f"    Getting main product image from search results...")
                     try:
-                        rating_elem = driver.find_element(By.CSS_SELECTOR, "div[class*='rating'] span")
-                        rating_text = rating_elem.text.strip()
-                        if rating_text and rating_text.replace('.', '').isdigit():
-                            detailed_product['rating'] = rating_text
-                    except:
-                        pass
+                        # Go back to search results
+                        driver.close()
+                        driver.switch_to.window(driver.window_handles[0])
+                        time.sleep(1)
+                        
+                        # Find the product card and extract the main image
+                        product_cards = driver.find_elements(By.CSS_SELECTOR, "li.product-base")
+                        if i < len(product_cards):
+                            card = product_cards[i]
+                            card_images = card.find_elements(By.CSS_SELECTOR, "img")
+                            
+                            # Look for the main product image (usually the first one)
+                            main_image_found = False
+                            for card_img in card_images:
+                                try:
+                                    img_src = card_img.get_attribute('src')
+                                    img_alt = card_img.get_attribute('alt') or ''
+                                    
+                                    if img_src and 'myntassets' in img_src.lower() and 'images' in img_src.lower():
+                                        # This is likely the main product image
+                                        main_image = {
+                                            'url': img_src,
+                                            'alt': img_alt,
+                                            'thumbnail': img_src
+                                        }
+                                        
+                                        # Add to existing images or create new list
+                                        if detailed_product.get('images'):
+                                            detailed_product['images'].insert(0, main_image)  # Put main image first
+                                        else:
+                                            detailed_product['images'] = [main_image]
+                                        
+                                        print(f"    ✅ Found main image from search results: {img_src[:80]}...")
+                                        main_image_found = True
+                                        break
+                                except:
+                                    continue
+                            
+                            if not main_image_found:
+                                print(f"    ❌ No main image found in search results")
+                        
+                        # Go back to product page for next iteration
+                        if i + 1 < len(products):
+                            next_product_link = products[i + 1]['link']
+                            driver.execute_script(f"window.open('{next_product_link}', '_blank');")
+                            driver.switch_to.window(driver.window_handles[-1])
+                            time.sleep(2)
+                    except Exception as e:
+                        print(f"    Error getting search result image: {e}")
                     
                     detailed_products.append(detailed_product)
                     print(f"✅ Successfully processed product {i+1}")

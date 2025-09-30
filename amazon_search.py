@@ -10,6 +10,7 @@ or
 import sys
 import time
 import json
+import re
 from typing import Optional
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -746,7 +747,7 @@ def search_amazon(query: str, headless: bool = False, max_results: int = 8):
                     except:
                         pass
                 
-                # Extract price from various possible elements (simplified like Meesho)
+                # Extract price information (enhanced to get MRP and discount)
                 price_selectors = [
                     "span.a-price.a-text-price.a-size-medium span.a-offscreen",  # Current price in offscreen
                     "span.a-price.a-size-medium span.a-offscreen",  # Current price without text-price
@@ -756,6 +757,10 @@ def search_amazon(query: str, headless: bool = False, max_results: int = 8):
                     "span[data-automation-id='product-price']",  # Automation price
                     "div[data-automation-id='product-price']",  # Automation price div
                 ]
+                
+                current_price = ""
+                mrp_price = ""
+                discount_info = ""
                 
                 for selector in price_selectors:
                     try:
@@ -768,15 +773,50 @@ def search_amazon(query: str, headless: bool = False, max_results: int = 8):
                                     parent = price_elem.find_element(By.XPATH, "./..")
                                     parent_text = parent.text.strip()
                                     if parent_text and '₹' in parent_text:
-                                        product_info['price'] = parent_text
-                                        break
+                                        price_text = parent_text
                                 except:
-                                    pass
+                                    continue
+                            
+                            # Check if this is MRP (struck through) or current price
+                            parent_elem = price_elem.find_element(By.XPATH, "./..")
+                            parent_classes = parent_elem.get_attribute('class') or ''
+                            
+                            if 'a-text-strike' in parent_classes or 'a-text-strikethrough' in parent_classes:
+                                if not mrp_price:
+                                    mrp_price = price_text
                             else:
-                                product_info['price'] = price_text
-                                break
+                                if not current_price:
+                                    current_price = price_text
                     except:
                         continue
+                
+                # Set the main price (prefer current price over MRP)
+                if current_price:
+                    product_info['price'] = current_price
+                elif mrp_price:
+                    product_info['price'] = mrp_price
+                
+                # Set MRP if we found it
+                if mrp_price:
+                    product_info['mrp'] = mrp_price
+                
+                # Try to find discount information
+                try:
+                    card_text = card.text.strip()
+                    lines = card_text.split('\n')
+                    for line in lines:
+                        line = line.strip()
+                        if '%' in line and 'off' in line.lower():
+                            discount_info = line
+                            break
+                        elif line.startswith('Save') and '₹' in line:
+                            discount_info = line
+                            break
+                    
+                    if discount_info:
+                        product_info['discount_percentage'] = discount_info
+                except:
+                    pass
                 
                 # If no price found, try to extract from card text (like Meesho)
                 if not product_info.get('price'):
@@ -800,30 +840,86 @@ def search_amazon(query: str, headless: bool = False, max_results: int = 8):
                     except:
                         pass
                 
-                # Extract rating from various possible elements (simplified like Meesho)
-                rating_selectors = [
-                    "span.a-icon-alt",  # Rating stars with text
-                    "span[aria-label*='star']",  # Star with aria-label
-                    "span[aria-label*='out of']",  # Rating with aria-label
+                # Extract rating using a comprehensive approach
+                # Amazon's rating structure is complex, so we'll try multiple methods
+                
+                # Method 1: Look for aria-label attributes that contain star ratings
+                try:
+                    rating_elements = card.find_elements(By.CSS_SELECTOR, "[aria-label*='out of 5'], [aria-label*='star']")
+                    for elem in rating_elements:
+                        aria_label = elem.get_attribute('aria-label') or ''
+                        if aria_label:
+                            # Extract rating from aria-label like "4.2 out of 5 stars"
+                            star_match = re.search(r'(\d+\.?\d*)\s*out\s*of\s*5', aria_label.lower())
+                            if star_match:
+                                rating_val = float(star_match.group(1))
+                                if 0 <= rating_val <= 5:
+                                    product_info['rating'] = star_match.group(1)
+                                    print(f"    Found star rating from aria-label: {product_info['rating']}")
+                                    break
+                except:
+                    pass
+                
+                # Method 2: Look for specific rating elements
+                if not product_info.get('rating'):
+                    rating_selectors = [
+                        "span.a-icon-alt",  # Rating stars with text
+                        "span[class*='a-icon-star']",  # Star icon spans
+                        "i[class*='a-icon-star']",  # Star icon elements
+                        "div[class*='rating'] span",  # Rating div spans
+                        "span[class*='rating']",  # Rating spans
+                    ]
+                    
+                    for selector in rating_selectors:
+                        try:
+                            rating_elem = card.find_element(By.CSS_SELECTOR, selector)
+                            rating_text = rating_elem.text.strip()
+                            
+                            if rating_text and ('out of' in rating_text.lower() or 'star' in rating_text.lower()):
+                                # Extract star rating from text like "4.2 out of 5 stars"
+                                star_match = re.search(r'(\d+\.?\d*)\s*out\s*of\s*5', rating_text.lower())
+                                if star_match:
+                                    rating_val = float(star_match.group(1))
+                                    if 0 <= rating_val <= 5:
+                                        product_info['rating'] = star_match.group(1)
+                                        print(f"    Found star rating: {product_info['rating']}")
+                                        break
+                        except:
+                            continue
+                
+                # Method 3: Extract from card text as fallback
+                if not product_info.get('rating'):
+                    try:
+                        card_text = card.text.strip()
+                        # Look for patterns like "4.2 out of 5 stars" in the card text
+                        star_match = re.search(r'(\d+\.?\d*)\s*out\s*of\s*5\s*stars?', card_text.lower())
+                        if star_match:
+                            rating_val = float(star_match.group(1))
+                            if 0 <= rating_val <= 5:
+                                product_info['rating'] = star_match.group(1)
+                                print(f"    Found star rating from card text: {product_info['rating']}")
+                    except Exception as e:
+                        print(f"    Error extracting rating from card text: {e}")
+                
+                # Extract review count (separate from star ratings)
+                review_selectors = [
+                    "a[href*='reviews'] span",  # Review link spans
+                    "span.a-size-base",  # Base size spans (often contain review counts)
+                    "div.a-row.a-spacing-small span",  # Row with spacing
                 ]
                 
-                for selector in rating_selectors:
+                for selector in review_selectors:
                     try:
-                        rating_elem = card.find_element(By.CSS_SELECTOR, selector)
-                        rating_text = rating_elem.text.strip()
-                        aria_label = rating_elem.get_attribute('aria-label') or ''
-                        title_attr = rating_elem.get_attribute('title') or ''
+                        review_elem = card.find_element(By.CSS_SELECTOR, selector)
+                        review_text = review_elem.text.strip()
                         
-                        # Check text content, aria-label, and title attribute
-                        if rating_text and ('out of' in rating_text.lower() or rating_text.replace('.', '').replace(',', '').isdigit()):
-                            product_info['rating'] = rating_text
-                            break
-                        elif aria_label and ('out of' in aria_label.lower() or 'star' in aria_label.lower()):
-                            product_info['rating'] = aria_label
-                            break
-                        elif title_attr and ('out of' in title_attr.lower() or 'star' in title_attr.lower()):
-                            product_info['rating'] = title_attr
-                            break
+                        # Look for patterns like "1,234" or "1234" - these are review counts
+                        if review_text and (',' in review_text or review_text.isdigit()):
+                            if len(review_text) > 2 and len(review_text) < 10:  # Reasonable review count length
+                                # Make sure it's not a star rating
+                                if not ('out of' in review_text.lower() or 'star' in review_text.lower()):
+                                    product_info['reviews_count'] = review_text
+                                    break
                     except:
                         continue
                 

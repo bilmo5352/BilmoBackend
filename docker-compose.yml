@@ -1,0 +1,50 @@
+services:
+  bilmo-api:
+    build: .
+    container_name: bilmo-api
+    ports:
+      - "5000:5000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - FLASK_APP=smart_api.py
+      - FLASK_ENV=production
+    volumes:
+      # Mount HTML files directory for persistence
+      - ./html_files:/app/html_files
+      # Mount logs directory
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # Add security options for Chrome
+    security_opt:
+      - seccomp:unconfined
+    # Add shared memory for Chrome
+    shm_size: 2gb
+    # Add capabilities for Chrome
+    cap_add:
+      - SYS_ADMIN
+
+  # Optional: Add MongoDB service if you want to use it
+  mongodb:
+    image: mongo:7.0
+    container_name: bilmo-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password123
+      - MONGO_INITDB_DATABASE=bilmo_cache
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    restart: unless-stopped
+    profiles:
+      - mongodb
+
+volumes:
+  mongodb_data:

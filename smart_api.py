@@ -42,7 +42,8 @@ def home():
     </head>
     <body>
         <h1>🧠 Smart E-commerce Search API</h1>
-        <p><strong>Intelligent workflow:</strong> Search → Check MongoDB Cache → Not found → Web Scraping → Save to MongoDB</p>
+        <p><strong>Intelligent workflow:</strong> Search → Check MongoDB Cache → Not found → Enhanced Web Scraping → Save to MongoDB</p>
+        <p><strong>🎯 Enhanced Features:</strong> MRP extraction, discount calculations, improved ratings, unified data format</p>
         
         <h2>📍 API Endpoints</h2>
         
@@ -82,25 +83,39 @@ def home():
             <p>Check API and database status</p>
         </div>
         
-        <h2>📊 Response Format</h2>
+        <h2>📊 Enhanced Response Format</h2>
         <pre>{
   "success": true,
   "query": "phones",
   "total_results": 6,
   "source": "cache" | "web_scraping",
   "cache_age": "2 hours ago",
+  "processing_time": "3.2s",
   "results": [
     {
-      "site": "Amazon",
-      "query": "phones",
-      "total_products": 2,
-      "products": [...]
-    },
-    {
-      "site": "Flipkart", 
-      "query": "phones",
-      "total_products": 2,
-      "products": [...]
+      "site": "Flipkart",
+      "query": "phones", 
+      "total_products": 3,
+      "enhanced_features": {
+        "mrp_extraction": true,
+        "discount_calculation": true,
+        "rating_extraction": true
+      },
+      "products": [
+        {
+          "name": "iPhone 16",
+          "price": "₹69,999",
+          "mrp": "₹79,999",
+          "discount_percentage": "12%",
+          "discount_amount": "₹10,000",
+          "brand": "Apple",
+          "rating": "4.6",
+          "reviews_count": "4.6(1,234)",
+          "availability": "In Stock",
+          "link": "https://...",
+          "images": [...]
+        }
+      ]
     }
   ]
 }</pre>
@@ -114,12 +129,14 @@ def home():
         </ul>
         
         <div style="margin-top: 30px; padding: 15px; background: #e7f3ff; border-radius: 5px;">
-            <h3>💡 Smart Features</h3>
+            <h3>💡 Enhanced Smart Features</h3>
             <ul>
                 <li><strong>Automatic Caching:</strong> Results are cached for 24 hours to improve speed</li>
                 <li><strong>Multi-platform:</strong> Searches Amazon, Flipkart, Meesho, and Myntra simultaneously</li>
+                <li><strong>Enhanced Data Extraction:</strong> MRP, discount amounts, improved ratings, availability status</li>
                 <li><strong>Force Refresh:</strong> Use force_refresh=true to get fresh results</li>
-                <li><strong>Unified Format:</strong> All results in consistent JSON format</li>
+                <li><strong>Unified Format:</strong> All results in consistent JSON format with enhanced fields</li>
+                <li><strong>Intelligent Processing:</strong> Automatic discount calculations and data validation</li>
             </ul>
         </div>
     </body>
@@ -160,11 +177,13 @@ def search_products():
         processing_time = round(end_time - start_time, 2)
         
         # Determine if results came from cache or web scraping
-        if not force_refresh:
-            # Check if we have a recent cache entry
-            cached_result = search_system.search_in_mongodb(query)
-            if cached_result:
-                cache_time = cached_result.get('search_timestamp')
+        # The intelligent_search method already handles caching, so we just need to set the source
+        if force_refresh:
+            results['source'] = 'web_scraping'
+        else:
+            # Check if results came from cache by looking at the timestamp
+            if 'search_timestamp' in results:
+                cache_time = results.get('search_timestamp')
                 if cache_time:
                     cache_age = datetime.now() - cache_time
                     results['source'] = 'cache'
@@ -173,8 +192,6 @@ def search_products():
                     results['source'] = 'web_scraping'
             else:
                 results['source'] = 'web_scraping'
-        else:
-            results['source'] = 'web_scraping'
         
         results['processing_time'] = f"{processing_time}s"
         results['timestamp'] = datetime.now().isoformat()

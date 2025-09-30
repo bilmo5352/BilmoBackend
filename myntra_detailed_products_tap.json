@@ -1,0 +1,20 @@
+{
+  "products": [
+    {
+      "title": "House Of Zelena",
+      "name": "House Of Zelena",
+      "price": "Rs. 699",
+      "link": "https://www.myntra.com/bra/house+of+zelena/house-of-zelena-full-coverage-removable-padding-maternity-bra/36653693/buy",
+      "rating": null,
+      "image_url": "https://assets.myntassets.com/dpr_2,q_60,w_210,c_limit,fl_progressive/assets/images/2025/AUGUST/28/n525o9v5_bb06e0254e3c4f96b0e510dc049d71a1.jpg",
+      "image_alt": "House Of Zelena Full Coverage Removable Padding Maternity Bra",
+      "images": [
+        {
+          "url": "https://assets.myntassets.com/dpr_2,q_60,w_210,c_limit,fl_progressive/assets/images/2025/AUGUST/28/n525o9v5_bb06e0254e3c4f96b0e510dc049d71a1.jpg",
+          "alt": "House Of Zelena Full Coverage Removable Padding Maternity Bra",
+          "thumbnail": "https://assets.myntassets.com/dpr_2,q_60,w_210,c_limit,fl_progressive/assets/images/2025/AUGUST/28/n525o9v5_bb06e0254e3c4f96b0e510dc049d71a1.jpg"
+        }
+      ]
+    }
+  ]
+}
