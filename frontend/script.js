@@ -16,6 +16,8 @@ const platformButtons = document.querySelectorAll('.platform-button');
 const dealsButton = document.getElementById('amazonDealsButton');
 const flipkartDealsButton = document.getElementById('flipkartDealsButton');
 const myntraDealsButton = document.getElementById('myntraDealsButton');
+const flightsButton = document.getElementById('flightsButton');
+const newsButton = document.getElementById('newsButton');
 const searchHistoryDiv = document.getElementById('searchHistory');
 const historyButtons = document.querySelector('.history-buttons');
 const errorDiv = document.getElementById('error');
@@ -119,6 +121,18 @@ function setupEventListeners() {
         if (myntraDealsButton) {
             myntraDealsButton.addEventListener('click', async () => {
                 await loadMyntraDeals();
+            });
+        }
+        
+        if (flightsButton) {
+            flightsButton.addEventListener('click', async () => {
+                await searchFlights();
+            });
+        }
+        
+        if (newsButton) {
+            newsButton.addEventListener('click', async () => {
+                await loadProductNews();
             });
         }
 }
@@ -998,6 +1012,271 @@ function displayMyntraDeals(dealsData) {
     });
     
     productsGrid.innerHTML = sectionsHTML;
+    showResults();
+}
+
+// Flight Search Function
+async function searchFlights() {
+    const origin = prompt("Enter origin airport code (e.g., DEL for Delhi):");
+    if (!origin) return;
+    
+    const destination = prompt("Enter destination airport code (e.g., BOM for Mumbai):");
+    if (!destination) return;
+    
+    const date = prompt("Enter departure date (YYYY-MM-DD, e.g., 2025-10-15):");
+    if (!date) return;
+    
+    setDealsButtonLoading(true, flightsButton);
+    setLoading(true, `Searching flights from ${origin} to ${destination}...`);
+    hideMessages();
+    hideResults();
+    
+    try {
+        console.log(`✈️ Searching flights: ${origin} → ${destination} on ${date}`);
+        
+        const response = await fetch(`${SMART_API_BASE_URL}/flights/search?origin=${origin}&destination=${destination}&date=${date}`, {
+            method: 'GET',
+            mode: 'cors',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        console.log('✈️ Flight results:', result);
+        
+        if (result.success && result.flights) {
+            displayFlights(result);
+            showSuccess(`Found ${result.total_flights || 0} flights!`);
+        } else {
+            showError(result.error || result.message || 'No flights found');
+        }
+    } catch (error) {
+        console.error('Flight search error:', error);
+        showError('Failed to search flights: ' + error.message);
+    } finally {
+        setDealsButtonLoading(false, flightsButton);
+        setLoading(false);
+    }
+}
+
+function displayFlights(flightData) {
+    console.log('✈️ Displaying flights:', flightData);
+    
+    const flights = flightData.flights || [];
+    
+    if (flights.length === 0) {
+        showError('No flights found');
+        return;
+    }
+    
+    resultsCount.textContent = `Found ${flights.length} flights from ${flightData.origin} to ${flightData.destination}`;
+    
+    let flightsHTML = `
+        <div class="deals-section-display">
+            <h3 class="section-title">Flights on ${flightData.departure_date}</h3>
+            <div class="deals-grid">
+    `;
+    
+    flights.forEach((flight, index) => {
+        const airline = flight.airline || flight.carrier || 'Unknown';
+        const flightNum = flight.flight_number || '';
+        const price = flight.price || flight.price_text || 'Price N/A';
+        const depTime = flight.departure_time || flight.dep_time || 'N/A';
+        const arrTime = flight.arrival_time || flight.arr_time || 'N/A';
+        const duration = flight.duration || '';
+        const stops = flight.stops || '';
+        
+        flightsHTML += `
+            <div class="deal-card flight-card">
+                <div class="flight-header" style="background: linear-gradient(135deg, #2874f0 0%, #1a5fd4 100%); padding: 15px; color: white; border-radius: 8px 8px 0 0; margin: -15px -15px 15px -15px;">
+                    <h4 class="deal-title" style="margin: 0; color: white; font-size: 18px;">${airline}</h4>
+                    ${flightNum ? `<div class="flight-number" style="font-size: 13px; opacity: 0.9; margin-top: 3px;">${flightNum}</div>` : ''}
+                </div>
+                <div class="deal-info">
+                    <div class="flight-route" style="display: flex; justify-content: space-between; align-items: center; margin: 10px 0;">
+                        <div style="text-align: center;">
+                            <div class="flight-time" style="font-size: 24px; font-weight: 700; color: #333;">${depTime}</div>
+                            <div style="font-size: 11px; color: #666; margin-top: 2px;">${flight.origin}</div>
+                        </div>
+                        <div style="text-align: center; flex: 1; padding: 0 10px;">
+                            <div class="flight-arrow" style="color: #2874f0; font-size: 24px;">→</div>
+                            ${duration ? `<div style="font-size: 11px; color: #666; margin-top: 2px;">${duration}</div>` : ''}
+                            ${stops ? `<div style="font-size: 11px; color: #28a745; margin-top: 2px; font-weight: 600;">${stops}</div>` : ''}
+                        </div>
+                        <div style="text-align: center;">
+                            <div class="flight-time" style="font-size: 24px; font-weight: 700; color: #333;">${arrTime}</div>
+                            <div style="font-size: 11px; color: #666; margin-top: 2px;">${flight.destination}</div>
+                        </div>
+                    </div>
+                    <div class="deal-price" style="font-size: 28px; color: #2874f0; font-weight: bold; text-align: center; margin: 15px 0; padding: 10px; background: #f0f7ff; border-radius: 8px;">${price}</div>
+                </div>
+            </div>
+        `;
+    });
+    
+    flightsHTML += `
+            </div>
+        </div>
+    `;
+    
+    productsGrid.innerHTML = flightsHTML;
+    showResults();
+}
+
+// Product News Functions
+async function loadProductNews() {
+    const productName = prompt("Enter product name for AI analysis (e.g., iPhone, laptop, headphones):");
+    if (!productName) return;
+    
+    setDealsButtonLoading(true, newsButton);
+    setLoading(true, `Getting AI analysis for ${productName}...`);
+    hideMessages();
+    hideResults();
+    
+    try {
+        console.log(`📰 Getting AI news analysis for: ${productName}`);
+        
+        const response = await fetch(`${SMART_API_BASE_URL}/product/news?product=${encodeURIComponent(productName)}`, {
+            method: 'GET',
+            mode: 'cors',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        console.log('📰 AI news analysis response:', result);
+        
+        if (result.success && result.data) {
+            displayProductNews(result.data, productName);
+            showSuccess(`AI analysis completed for ${productName}!`);
+        } else {
+            showError(result.error || 'Failed to get AI analysis');
+        }
+    } catch (error) {
+        console.error('Product news error:', error);
+        showError('Failed to get product news: ' + error.message);
+    } finally {
+        setDealsButtonLoading(false, newsButton);
+        setLoading(false);
+    }
+}
+
+function displayProductNews(newsData, productName) {
+    console.log('📰 Displaying product news:', newsData);
+    
+    const reports = newsData.reports || [];
+    const news = newsData.news || [];
+    const repurchase = newsData.repurchase || [];
+    
+    resultsCount.textContent = `AI Analysis for "${productName}" - ${reports.length} Reports, ${news.length} News Items`;
+    
+    let newsHTML = `
+        <div class="news-container" style="max-width: 1200px; margin: 0 auto;">
+    `;
+    
+    // Reports Section
+    if (reports.length > 0) {
+        newsHTML += `
+            <div class="news-section" style="margin-bottom: 40px;">
+                <h2 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; margin: 0 0 20px 0; text-align: center;">
+                    📊 Product Reports & Analysis
+                </h2>
+                <div class="news-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px;">
+        `;
+        
+        reports.forEach((report, index) => {
+            newsHTML += `
+                <div class="news-card" style="background: white; border-radius: 8px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-left: 4px solid #667eea;">
+                    <div class="news-type" style="background: #667eea; color: white; padding: 5px 12px; border-radius: 15px; font-size: 12px; font-weight: bold; display: inline-block; margin-bottom: 15px;">
+                        REPORT
+                    </div>
+                    <h3 style="margin: 0 0 10px 0; color: #333; font-size: 18px; line-height: 1.4;">${report.title || 'Report Title'}</h3>
+                    <p style="color: #666; line-height: 1.6; margin: 0 0 15px 0;">${report.snippet || 'No description available'}</p>
+                    ${report.url ? `
+                        <a href="${report.url}" target="_blank" rel="noopener noreferrer" 
+                           style="display: inline-block; background: #667eea; color: white; padding: 8px 16px; border-radius: 4px; text-decoration: none; font-size: 14px; font-weight: 500;">
+                            Read Full Report 🔗
+                        </a>
+                    ` : ''}
+                </div>
+            `;
+        });
+        
+        newsHTML += `
+                </div>
+            </div>
+        `;
+    }
+    
+    // News Section
+    if (news.length > 0) {
+        newsHTML += `
+            <div class="news-section" style="margin-bottom: 40px;">
+                <h2 style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 20px; border-radius: 8px; margin: 0 0 20px 0; text-align: center;">
+                    📰 Latest News & Updates
+                </h2>
+                <div class="news-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px;">
+        `;
+        
+        news.forEach((newsItem, index) => {
+            newsHTML += `
+                <div class="news-card" style="background: white; border-radius: 8px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-left: 4px solid #28a745;">
+                    <div class="news-type" style="background: #28a745; color: white; padding: 5px 12px; border-radius: 15px; font-size: 12px; font-weight: bold; display: inline-block; margin-bottom: 15px;">
+                        NEWS
+                    </div>
+                    <h3 style="margin: 0 0 10px 0; color: #333; font-size: 18px; line-height: 1.4;">${newsItem.title || 'News Title'}</h3>
+                    <p style="color: #666; line-height: 1.6; margin: 0 0 15px 0;">${newsItem.snippet || 'No description available'}</p>
+                    ${newsItem.url ? `
+                        <a href="${newsItem.url}" target="_blank" rel="noopener noreferrer" 
+                           style="display: inline-block; background: #28a745; color: white; padding: 8px 16px; border-radius: 4px; text-decoration: none; font-size: 14px; font-weight: 500;">
+                            Read Full Article 🔗
+                        </a>
+                    ` : ''}
+                </div>
+            `;
+        });
+        
+        newsHTML += `
+                </div>
+            </div>
+        `;
+    }
+    
+    // Repurchase Suggestions Section
+    if (repurchase.length > 0) {
+        newsHTML += `
+            <div class="news-section" style="margin-bottom: 40px;">
+                <h2 style="background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%); color: white; padding: 20px; border-radius: 8px; margin: 0 0 20px 0; text-align: center;">
+                    🛒 Recommended Related Products
+                </h2>
+                <div class="news-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px;">
+        `;
+        
+        repurchase.forEach((item, index) => {
+            newsHTML += `
+                <div class="news-card" style="background: white; border-radius: 8px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-left: 4px solid #ffc107;">
+                    <div class="news-type" style="background: #ffc107; color: #333; padding: 5px 12px; border-radius: 15px; font-size: 12px; font-weight: bold; display: inline-block; margin-bottom: 15px;">
+                        RECOMMENDED
+                    </div>
+                    <h3 style="margin: 0 0 10px 0; color: #333; font-size: 18px; line-height: 1.4;">${item.name || 'Product Name'}</h3>
+                    <p style="color: #666; line-height: 1.6; margin: 0;">${item.description || 'No description available'}</p>
+                </div>
+            `;
+        });
+        
+        newsHTML += `
+                </div>
+            </div>
+        `;
+    }
+    
+    newsHTML += `
+        </div>
+    `;
+    
+    productsGrid.innerHTML = newsHTML;
     showResults();
 }
 

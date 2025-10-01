@@ -11,6 +11,7 @@ import time
 from datetime import datetime
 from intelligent_search_system import IntelligentSearchSystem
 import logging
+from aireport import productai
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -100,6 +101,17 @@ def home():
         <div class="endpoint">
             <h3><span class="method">GET</span> /status</h3>
             <p>Check API and database status</p>
+        </div>
+        
+        <div class="endpoint">
+            <h3><span class="method">GET</span> /product/news</h3>
+            <p>Get AI-powered product news and reports</p>
+            <p><strong>Parameters:</strong></p>
+            <ul>
+                <li><code>product</code> - Product name to analyze (required)</li>
+            </ul>
+            <p><strong>Example:</strong> <code>/product/news?product=laptop</code></p>
+            <p><strong>Returns:</strong> AI-generated reports, news, and repurchase suggestions</p>
         </div>
         
         <h2>📊 Enhanced Response Format</h2>
@@ -504,12 +516,8 @@ def get_unified_deals():
             from flipkart_homepage_deals import scrape_flipkart_homepage_deals
             deals_data = scrape_flipkart_homepage_deals(headless=True, max_items_per_section=20)
         elif platform == "Myntra":
-            # For now, return error for Myntra
-            return jsonify({
-                "success": False,
-                "error": "Myntra scraper not available yet",
-                "data": None
-            })
+            from myntra_working_scraper import scrape_myntra_homepage_deals
+            deals_data = scrape_myntra_homepage_deals(headless=True, max_items_per_section=20)
         else:
             return jsonify({
                 "success": False,
@@ -802,6 +810,137 @@ def get_flipkart_deals():
             "error": str(e)
         }), 500
 
+@app.route('/flights/search')
+def search_flights():
+    """
+    Search for flights with MongoDB-first flow:
+    1. Check MongoDB for existing search
+    2. If not found -> Scrape from airlines
+    3. Show results
+    4. Save to MongoDB
+    """
+    try:
+        # Get parameters
+        origin = request.args.get('origin', '').strip().upper()
+        destination = request.args.get('destination', '').strip().upper()
+        date = request.args.get('date', '').strip()
+        
+        if not origin or not destination or not date:
+            return jsonify({
+                "success": False,
+                "error": "Parameters required: origin, destination, date (YYYY-MM-DD)"
+            }), 400
+        
+        logger.info(f"✈️ Flight search request: {origin} -> {destination} on {date}")
+        
+        # STEP 1: Check MongoDB for existing search (< 6 hours old)
+        if search_system.mongodb_manager.client:
+            try:
+                from datetime import timedelta
+                mongodb_client = search_system.mongodb_manager.client
+                db = mongodb_client['scraper_db']
+                flights_collection = db['flight_searches']
+                
+                # Look for recent search with same parameters
+                six_hours_ago = datetime.now() - timedelta(hours=6)
+                
+                existing_search = flights_collection.find_one({
+                    "origin": origin,
+                    "destination": destination,
+                    "departure_date": date,
+                    "timestamp": {"$gte": six_hours_ago}
+                }, sort=[("timestamp", -1)])
+                
+                if existing_search:
+                    logger.info(f"✅ Found existing flight search in MongoDB")
+                    
+                    # Convert ObjectId to string
+                    if '_id' in existing_search:
+                        existing_search['_id'] = str(existing_search['_id'])
+                    if 'timestamp' in existing_search:
+                        existing_search['timestamp'] = existing_search['timestamp'].isoformat()
+                    
+                    return jsonify({
+                        "success": True,
+                        "origin": origin,
+                        "destination": destination,
+                        "departure_date": date,
+                        "total_flights": existing_search.get('total_flights', 0),
+                        "flights": existing_search.get('flights', []),
+                        "source": "mongodb_cache",
+                        "cache": True
+                    })
+                    
+            except Exception as e:
+                logger.warning(f"MongoDB check failed: {e}")
+        
+        # STEP 2: Not found in MongoDB - scrape from IndiGo (most reliable for Indian flights)
+        logger.info(f"🕷️ No cached data - scraping IndiGo for {origin} -> {destination}...")
+        
+        # Use IndiGo scraper (works with real IndiGo website)
+        from indigo_scraper import scrape_indigo_flights
+        
+        flight_data = scrape_indigo_flights(origin, destination, date, headless=True)
+        all_flights = flight_data.get('flights', [])
+        
+        # STEP 3: Check if we found any flights
+        if not all_flights:
+            return jsonify({
+                "success": False,
+                "message": "No flights found. Airline websites may have changed or flights not available.",
+                "origin": origin,
+                "destination": destination,
+                "date": date,
+                "note": "This is a template scraper - selectors may need updates"
+            })
+        
+        # STEP 4: Save to MongoDB for future requests
+        if search_system.mongodb_manager.client:
+            try:
+                mongodb_client = search_system.mongodb_manager.client
+                db = mongodb_client['scraper_db']
+                flights_collection = db['flight_searches']
+                
+                flight_document = {
+                    "timestamp": datetime.now(),
+                    "origin": origin,
+                    "destination": destination,
+                    "departure_date": date,
+                    "total_flights": len(all_flights),
+                    "flights": all_flights,
+                    "search_metadata": {
+                        "scraper_version": "2.0.0",
+                        "data_source": "IndiGo",
+                        "scraper_type": "indigo_direct_url",
+                        "cache_duration_hours": 6
+                    }
+                }
+                
+                result = flights_collection.insert_one(flight_document)
+                logger.info(f"✅ Saved {len(all_flights)} flights to MongoDB with ID: {result.inserted_id}")
+            except Exception as e:
+                logger.warning(f"Failed to save flights to MongoDB: {e}")
+        
+        # STEP 5: Return results
+        return jsonify({
+            "success": True,
+            "origin": origin,
+            "destination": destination,
+            "departure_date": date,
+            "total_flights": len(all_flights),
+            "flights": all_flights,
+            "source": "fresh_scrape",
+            "cache": False
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Flight search error: {e}")
+        logger.exception("Full error:")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
 @app.errorhandler(404)
 def not_found(error):
     """Handle 404 errors"""
@@ -812,7 +951,12 @@ def not_found(error):
             "/search?q=<query>",
             "/history",
             "/cached/<id>", 
-            "/status"
+            "/status",
+            "/flights/search?origin=<>&destination=<>&date=<>",
+            "/product/news?product=<product_name>",
+            "/amazon/deals",
+            "/flipkart/deals",
+            "/myntra/deals"
         ],
         "timestamp": datetime.now().isoformat()
     }), 404
@@ -825,6 +969,55 @@ def internal_error(error):
         "error": "Internal server error",
         "timestamp": datetime.now().isoformat()
     }), 500
+
+@app.route('/product/news')
+def get_product_news():
+    """Get AI-powered product news and reports using aireport.py"""
+    try:
+        # Get product name from query parameters
+        product_name = request.args.get('product', '').strip()
+        
+        if not product_name:
+            return jsonify({
+                "success": False,
+                "error": "Product parameter is required"
+            }), 400
+        
+        logger.info(f"📰 Getting AI-powered news for product: {product_name}")
+        
+        # Use aireport.py functionality
+        try:
+            from aireport import productai
+            
+            # Get AI analysis including reports, news, and repurchase suggestions
+            ai_analysis = productai(product_name)
+            
+            logger.info(f"✅ AI analysis completed for {product_name}")
+            
+            return jsonify({
+                "success": True,
+                "product": product_name,
+                "data": ai_analysis,
+                "source": "ai_analysis",
+                "timestamp": datetime.now().isoformat()
+            })
+            
+        except Exception as ai_error:
+            logger.error(f"❌ AI analysis error: {ai_error}")
+            return jsonify({
+                "success": False,
+                "error": f"AI analysis failed: {str(ai_error)}",
+                "product": product_name,
+                "timestamp": datetime.now().isoformat()
+            }), 500
+        
+    except Exception as e:
+        logger.error(f"❌ Product news error: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }), 500
 
 @app.route('/myntra/deals')
 def get_myntra_deals():
@@ -861,145 +1054,30 @@ def get_myntra_deals():
         # Scrape fresh deals
         logger.info("🕷️ Scraping fresh Myntra homepage deals...")
         
-        # For now, return mock data while ChromeDriver issue is resolved
-        mock_deals_data = {
-            'timestamp': datetime.now().isoformat(),
-            'source': 'Myntra India Homepage (Mock Data)',
-            'total_sections': 3,
-            'total_items': 15,
-            'sections': [
-                {
-                    'section_title': 'Fashion Deals',
-                    'item_count': 5,
-                    'items': [
-                        {
-                            'title': 'Nike Air Max 270',
-                            'price': '₹8,995',
-                            'discount': '20% OFF',
-                            'image': 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300',
-                            'link': 'https://www.myntra.com/nike-air-max-270/p/123456'
-                        },
-                        {
-                            'title': 'Levi\'s 501 Jeans',
-                            'price': '₹2,999',
-                            'discount': '15% OFF',
-                            'image': 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=300',
-                            'link': 'https://www.myntra.com/levis-501-jeans/p/123457'
-                        },
-                        {
-                            'title': 'Zara Cotton T-Shirt',
-                            'price': '₹1,299',
-                            'discount': '25% OFF',
-                            'image': 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=300',
-                            'link': 'https://www.myntra.com/zara-cotton-tshirt/p/123458'
-                        },
-                        {
-                            'title': 'Adidas Ultraboost 22',
-                            'price': '₹12,999',
-                            'discount': '30% OFF',
-                            'image': 'https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=300',
-                            'link': 'https://www.myntra.com/adidas-ultraboost-22/p/123459'
-                        },
-                        {
-                            'title': 'H&M Summer Dress',
-                            'price': '₹1,999',
-                            'discount': '40% OFF',
-                            'image': 'https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=300',
-                            'link': 'https://www.myntra.com/hm-summer-dress/p/123460'
-                        }
-                    ]
-                },
-                {
-                    'section_title': 'Accessories',
-                    'item_count': 5,
-                    'items': [
-                        {
-                            'title': 'Ray-Ban Aviator Sunglasses',
-                            'price': '₹15,999',
-                            'discount': '10% OFF',
-                            'image': 'https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=300',
-                            'link': 'https://www.myntra.com/rayban-aviator/p/123461'
-                        },
-                        {
-                            'title': 'Fossil Leather Watch',
-                            'price': '₹8,999',
-                            'discount': '20% OFF',
-                            'image': 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300',
-                            'link': 'https://www.myntra.com/fossil-leather-watch/p/123462'
-                        },
-                        {
-                            'title': 'Gucci Handbag',
-                            'price': '₹45,999',
-                            'discount': '15% OFF',
-                            'image': 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=300',
-                            'link': 'https://www.myntra.com/gucci-handbag/p/123463'
-                        },
-                        {
-                            'title': 'Apple AirPods Pro',
-                            'price': '₹19,999',
-                            'discount': '5% OFF',
-                            'image': 'https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?w=300',
-                            'link': 'https://www.myntra.com/apple-airpods-pro/p/123464'
-                        },
-                        {
-                            'title': 'Dior Perfume',
-                            'price': '₹7,999',
-                            'discount': '25% OFF',
-                            'image': 'https://images.unsplash.com/photo-1541643600914-78b084683601?w=300',
-                            'link': 'https://www.myntra.com/dior-perfume/p/123465'
-                        }
-                    ]
-                },
-                {
-                    'section_title': 'Home & Living',
-                    'item_count': 5,
-                    'items': [
-                        {
-                            'title': 'IKEA Coffee Table',
-                            'price': '₹12,999',
-                            'discount': '30% OFF',
-                            'image': 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=300',
-                            'link': 'https://www.myntra.com/ikea-coffee-table/p/123466'
-                        },
-                        {
-                            'title': 'West Elm Throw Pillows',
-                            'price': '₹2,999',
-                            'discount': '20% OFF',
-                            'image': 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=300',
-                            'link': 'https://www.myntra.com/west-elm-pillows/p/123467'
-                        },
-                        {
-                            'title': 'Crate & Barrel Vase',
-                            'price': '₹4,999',
-                            'discount': '15% OFF',
-                            'image': 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=300',
-                            'link': 'https://www.myntra.com/crate-barrel-vase/p/123468'
-                        },
-                        {
-                            'title': 'Pottery Barn Candles',
-                            'price': '₹1,999',
-                            'discount': '25% OFF',
-                            'image': 'https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=300',
-                            'link': 'https://www.myntra.com/pottery-barn-candles/p/123469'
-                        },
-                        {
-                            'title': 'Anthropologie Wall Art',
-                            'price': '₹6,999',
-                            'discount': '35% OFF',
-                            'image': 'https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=300',
-                            'link': 'https://www.myntra.com/anthropologie-wall-art/p/123470'
-                        }
-                    ]
-                }
-            ]
-        }
-        
-        deals_data = mock_deals_data
-        deals_data['source'] = 'fresh'
-        
-        # TODO: Uncomment when ChromeDriver issue is resolved
-        # from myntra_homepage_deals import scrape_myntra_homepage_deals
-        # deals_data = scrape_myntra_homepage_deals(headless=True, max_items_per_section=20)
+        # Use actual Myntra scraper
+        try:
+            from myntra_working_scraper import scrape_myntra_homepage_deals
+            deals_data = scrape_myntra_homepage_deals(headless=True, max_items_per_section=20)
+            deals_data['source'] = 'fresh'
+            logger.info("✅ Successfully scraped Myntra homepage deals")
+        except Exception as scraper_error:
+            logger.error(f"❌ Myntra scraper failed: {scraper_error}")
+            # Return a helpful error message with troubleshooting steps
+            error_msg = f"Myntra scraper failed due to ChromeDriver issue. Error: {str(scraper_error)}"
+            if "WinError 193" in str(scraper_error):
+                error_msg += " This is a ChromeDriver compatibility issue. Try: pip install --upgrade webdriver-manager selenium"
+            
+            return jsonify({
+                "success": False,
+                "error": error_msg,
+                "troubleshooting": [
+                    "ChromeDriver compatibility issue detected",
+                    "Try: pip install --upgrade webdriver-manager selenium",
+                    "Or restart the server after updating ChromeDriver",
+                    "Check if Chrome browser is installed and up to date"
+                ],
+                "timestamp": datetime.now().isoformat()
+            }), 500
         
         # Save to unified deals collection (same as Amazon)
         try:
