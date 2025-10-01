@@ -67,152 +67,118 @@ def scrape_flipkart_homepage_deals(headless: bool = True, max_items_per_section:
     try:
         logger.info("🏠 Visiting Flipkart India homepage...")
         driver.get("https://www.flipkart.com")
-        time.sleep(10)  # Wait longer for page to load
+        time.sleep(3)  # Reduced from 10 to 3 seconds
         
-        # Scroll down to load content
+        # Smart scrolling like Amazon - scroll until no more content loads
         logger.info("📜 Scrolling to load deals...")
-        for i in range(5):
+        last_height = driver.execute_script("return document.body.scrollHeight")
+        scroll_attempts = 0
+        max_scrolls = 10  # Reduced from 20 to 10
+        
+        while scroll_attempts < max_scrolls:
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(3)
+            time.sleep(1)  # Reduced from 2-3 to 1 second
+            
+            new_height = driver.execute_script("return document.body.scrollHeight")
+            if new_height == last_height:
+                logger.info(f"✅ Reached end after {scroll_attempts + 1} scrolls")
+                break
+            
+            last_height = new_height
+            scroll_attempts += 1
         
         # Scroll back to top
         driver.execute_script("window.scrollTo(0, 0);")
-        time.sleep(5)
+        time.sleep(1)  # Reduced from 5 to 1 second
         
-        logger.info("🔍 Extracting product deals with prices...")
+        # Save HTML for debugging
+        logger.info("📸 Saving Flipkart homepage HTML...")
+        html_content = driver.page_source
+        with open('flipkart_homepage.html', 'w', encoding='utf-8') as f:
+            f.write(html_content)
         
-        # Strategy 1: Look for actual product cards with images and prices
-        logger.info("🛍️ Looking for product cards with images and prices...")
+        logger.info("🔍 Extracting sections and deals...")
         
-        # Find all elements that contain both product links and price text
-        all_elements = driver.find_elements(By.CSS_SELECTOR, "div, section, article")
-        product_containers = []
-        
-        for elem in all_elements:
-            try:
-                # Check if this element has product links
-                product_links = elem.find_elements(By.CSS_SELECTOR, "a[href*='/p/']")
-                if not product_links:
-                    continue
-                
-                # Check if this element has price text
-                elem_text = elem.text
-                has_price = False
-                if elem_text and ('₹' in elem_text or 'Rs' in elem_text):
-                    # Check if it's a valid price (not just text containing rupee symbol)
-                    lines = elem_text.split('\n')
-                    for line in lines:
-                        line = line.strip()
-                        if line and ('₹' in line or 'Rs' in line):
-                            # Extract numbers from the line
-                            import re
-                            numbers = re.findall(r'[\d,]+', line)
-                            if numbers and any(len(num.replace(',', '')) >= 3 for num in numbers):
-                                has_price = True
-                                break
-                
-                if has_price:
-                    product_containers.append(elem)
-                    
-            except Exception as e:
-                logger.debug(f"Error checking element: {e}")
-                continue
-        
-        logger.info(f"   Found {len(product_containers)} containers with products and prices")
-        
-        sections_found = {}
-        
-        for container in product_containers[:20]:  # Check first 20 containers
-            try:
-                # Extract section title
-                section_title = extract_section_title_from_card(container)
-                if not section_title:
-                    section_title = "Featured Products"
-                
-                # Extract products from this container
-                products = []
-                product_links = container.find_elements(By.CSS_SELECTOR, "a[href*='/p/']")
-                
-                for link in product_links[:max_items_per_section]:
-                    product_info = extract_product_info_from_container(link, container)
-                    if product_info and is_valid_product(product_info) and product_info.get('price'):
-                        products.append(product_info)
-                
-                if products:
-                    if section_title not in sections_found:
-                        sections_found[section_title] = []
-                    sections_found[section_title].extend(products)
-                    logger.info(f"  ✅ Found {len(products)} products with prices in '{section_title}'")
-                    
-            except Exception as e:
-                logger.debug(f"Error processing container: {e}")
-                continue
-        
-        # Strategy 2: Look for specific deal banners and sections
-        logger.info("🎯 Looking for deal banners...")
-        deal_selectors = [
-            "div[class*='banner']",
-            "div[class*='promo']",
-            "div[class*='offer']",
-            "div[class*='deal']",
-            "div[class*='flash']",
-            "div[class*='sale']"
+        # Simplified Strategy: Find section containers efficiently
+        section_selectors = [
+            "div[data-id]",  # Flipkart specific
+            "div._1AtVbE",   # Common Flipkart widget class
+            "div._2MlkI1",   # Another widget class
+            "div[class*='widget']",
+            "div[class*='section']",
+            "section[data-id]",
         ]
         
-        for selector in deal_selectors:
-            try:
-                deal_containers = driver.find_elements(By.CSS_SELECTOR, selector)
-                for container in deal_containers[:5]:  # Check first 5
-                    products = extract_products_from_deal_container(container, driver, max_items_per_section)
-                    if products:
-                        section_title = extract_section_title_from_card(container) or "Special Deals"
-                        if section_title not in sections_found:
-                            sections_found[section_title] = []
-                        sections_found[section_title].extend(products)
-                        logger.info(f"  ✅ Found {len(products)} products in deal banner '{section_title}'")
-            except Exception as e:
-                logger.debug(f"Error with deal selector {selector}: {e}")
-                continue
+        processed_titles = set()
         
-        # Strategy 3: Direct product link extraction with better price detection
-        logger.info("🔗 Extracting direct product links with prices...")
-        all_product_links = driver.find_elements(By.CSS_SELECTOR, "a[href*='/p/']")
-        logger.info(f"   Found {len(all_product_links)} total product links")
-        
-        direct_products = {}
-        for link in all_product_links[:max_items_per_section * 3]:
+        for selector in section_selectors:
             try:
-                # Find parent container
-                parent_section = find_product_parent_section(link, driver)
-                section_title = extract_section_title_from_parent(parent_section) if parent_section else "Direct Products"
+                sections = driver.find_elements(By.CSS_SELECTOR, selector)
+                logger.info(f"🔍 Checking '{selector}': found {len(sections)} containers")
                 
-                product_info = extract_product_info_from_container(link, parent_section)
-                if product_info and is_valid_product(product_info) and product_info.get('price'):
-                    if section_title not in direct_products:
-                        direct_products[section_title] = []
-                    direct_products[section_title].append(product_info)
+                for section in sections[:15]:  # Limit to first 15 per selector
+                    try:
+                        # Extract section title
+                        section_title = extract_section_title(section)
+                        
+                        # Skip if no title or already processed
+                        if not section_title or section_title in processed_titles:
+                            continue
+                        
+                        # Extract items
+                        section_items = extract_section_items(section, driver, max_items_per_section)
+                        
+                        # Only add section if it has valid products with titles
+                        # Prefer items with images and prices
+                        valid_items = [item for item in section_items if item.get('title') and len(item.get('title', '')) > 5]
+                        
+                        # Log items with missing data for debugging
+                        items_with_images = sum(1 for item in valid_items if item.get('image'))
+                        items_with_prices = sum(1 for item in valid_items if item.get('price'))
+                        logger.info(f"  📊 Images: {items_with_images}/{len(valid_items)}, Prices: {items_with_prices}/{len(valid_items)}")
+                        
+                        for item in valid_items:
+                            if not item.get('image'):
+                                logger.warning(f"  ⚠️ Item missing image: {item.get('title', 'Unknown')[:40]}")
+                            if not item.get('price'):
+                                logger.warning(f"  ⚠️ Item missing price: {item.get('title', 'Unknown')[:40]}")
+                        
+                        if valid_items and len(valid_items) > 0:
+                            section_data = {
+                                'section_title': section_title,
+                                'item_count': len(valid_items),
+                                'items': valid_items
+                            }
+                            all_sections.append(section_data)
+                            processed_titles.add(section_title)
+                            logger.info(f"  ✅ '{section_title}': {len(valid_items)} items")
+                        else:
+                            logger.debug(f"  ⚠️ Skipping '{section_title}': no valid products")
+                    except Exception as e:
+                        logger.debug(f"  ⚠️ Error processing section: {e}")
+                        continue
+                        
             except Exception as e:
-                logger.debug(f"Error processing direct link: {e}")
+                logger.debug(f"Selector '{selector}' failed: {e}")
                 continue
         
-        # Merge all sections
-        for section_title, products in sections_found.items():
-            if products:
-                section_data = {
-                    'section_title': section_title,
-                    'item_count': len(products),
-                    'items': products[:max_items_per_section]
-                }
-                all_sections.append(section_data)
+        # Also extract from headings (like Amazon does)
+        logger.info("🔄 Extracting from headings...")
+        heading_sections = extract_sections_from_all_headings(driver, max_items_per_section, processed_titles)
         
-        for section_title, products in direct_products.items():
-            if products and not any(s['section_title'] == section_title for s in all_sections):
-                section_data = {
-                    'section_title': section_title,
-                    'item_count': len(products),
-                    'items': products[:max_items_per_section]
-                }
-                all_sections.append(section_data)
+        for section in heading_sections:
+            # Only add if has valid items and not already processed
+            if section['section_title'] not in processed_titles and section.get('item_count', 0) > 0:
+                # Double check items are valid
+                valid_items = [item for item in section.get('items', []) if item.get('title') and len(item.get('title', '')) > 5]
+                if valid_items:
+                    section['items'] = valid_items
+                    section['item_count'] = len(valid_items)
+                    all_sections.append(section)
+                    processed_titles.add(section['section_title'])
+                    logger.info(f"  ✅ '{section['section_title']}': {len(valid_items)} items")
+                else:
+                    logger.debug(f"  ⚠️ Skipping '{section['section_title']}': no valid products")
         
         logger.info(f"\n{'='*60}")
         logger.info(f"📦 TOTAL SECTIONS EXTRACTED: {len(all_sections)}")
@@ -793,51 +759,28 @@ def extract_section_title(section_element):
         return None
 
 def extract_section_items(section_element, driver, max_items=10):
-    """Extract items from a section"""
+    """Extract items from a section - only valid products"""
     items = []
     
     try:
         # Try to find product cards within the section
         item_selectors = [
+            # Direct product links (most reliable)
+            "a[href*='/p/']",
+            "a[href*='/product/']",
             # Current Flipkart selectors
             "div.q8WwEU a",
             "div._3zsGrb a", 
             "div._2-LWwB a",
-            "div.css-175oi2r a",
-            "div[class*='q8WwEU'] a",
-            "div[class*='_3zsGrb'] a",
-            "div[class*='_2-LWwB'] a",
-            "div[class*='css-175oi2r'] a",
             # Legacy Flipkart selectors
             "div._1AtVbE a",
             "div._2MlkI1 a",
             "div._1YokD2 a",
-            "div._1HmYoV a",
-            "div._3e7xtJ a",
-            "div._2cLu-l a",
-            "div._1fQZEK a",
-            "div._3gijNv a",
-            "div._2d0qh9 a",
-            "div._3O0U0u a",
-            "div._2QfC02 a",
             # Generic selectors
             "li a",
             "div[class*='item'] a",
             "div[class*='product'] a",
             "div[class*='card'] a",
-            "div[class*='widget'] a",
-            "div[class*='section'] a",
-            "div[class*='container'] a",
-            "div[class*='grid'] a",
-            "div[class*='row'] a",
-            "div[class*='col'] a",
-            # Direct product links
-            "a[href*='/p/']",
-            "a[href*='/product/']",
-            "a[href*='/dp/']",
-            # Any link within divs with underscore classes
-            "div[class^='_'] a",
-            "div[class*='css-'] a",
         ]
         
         for selector in item_selectors:
@@ -845,10 +788,16 @@ def extract_section_items(section_element, driver, max_items=10):
                 item_links = section_element.find_elements(By.CSS_SELECTOR, selector)
                 
                 if item_links and len(item_links) > 0:
-                    for item_link in item_links[:max_items]:
+                    for item_link in item_links[:max_items * 3]:  # Check more to filter
                         item_info = extract_item_info(item_link, section_element)
-                        if item_info and item_info.get('title'):
-                            items.append(item_info)
+                        # Only add if has valid title, link, and preferably image/price
+                        if item_info and item_info.get('title') and item_info.get('link') and len(item_info.get('title', '')) > 5:
+                            # Prefer items with price and image, but add anyway if we don't have enough
+                            if item_info.get('image') or item_info.get('price') or len(items) < 3:
+                                items.append(item_info)
+                                
+                                if len(items) >= max_items:
+                                    break
                     
                     if len(items) > 0:
                         break
@@ -861,7 +810,7 @@ def extract_section_items(section_element, driver, max_items=10):
         return []
 
 def extract_item_info(item_element, section_element):
-    """Extract information from a single item"""
+    """Extract information from a single item - Enhanced for Flipkart"""
     item_info = {
         'title': '',
         'price': '',
@@ -876,7 +825,13 @@ def extract_item_info(item_element, section_element):
         if link:
             if link.startswith('/'):
                 link = 'https://www.flipkart.com' + link
-            item_info['link'] = link
+            # Validate that it's a Flipkart link only
+            if 'flipkart.com' in link:
+                item_info['link'] = link
+            else:
+                # Skip non-Flipkart links
+                logger.debug(f"Skipping non-Flipkart link: {link}")
+                return None
         
         # Extract title from various sources
         # 1. Try aria-label
@@ -894,6 +849,17 @@ def extract_item_info(item_element, section_element):
         if not title:
             title = item_element.text.strip()
         
+        # 4. Extract from URL if nothing else works
+        if not title and link:
+            try:
+                # Extract product name from URL
+                url_parts = link.split('/p/')[0].split('/')
+                if url_parts:
+                    product_slug = url_parts[-1]
+                    title = product_slug.replace('-', ' ').title()
+            except:
+                pass
+        
         # Clean up title
         if title:
             title = title.split('\n')[0].strip()  # Take first line
@@ -901,35 +867,188 @@ def extract_item_info(item_element, section_element):
             if len(title) > 10 and len(title) < 200:
                 item_info['title'] = title
         
-        # Extract image
+        # ULTRA AGGRESSIVE IMAGE EXTRACTION - SEARCH EVERYWHERE
         try:
-            img = item_element.find_element(By.TAG_NAME, 'img')
-            img_src = img.get_attribute('src') or ''
-            if img_src and 'flipkart' in img_src.lower():
+            img_src = None
+            
+            # Method 1: Find ALL images in a broader area and pick the best one
+            search_elements = [item_element]
+            
+            # Add parent to search
+            try:
+                parent = item_element.find_element(By.XPATH, './..')
+                search_elements.append(parent)
+            except:
+                pass
+            
+            # Add grandparent to search
+            try:
+                grandparent = item_element.find_element(By.XPATH, './../..')
+                search_elements.append(grandparent)
+            except:
+                pass
+            
+            # Add section if available
+            if section_element:
+                search_elements.append(section_element)
+            
+            # Search all these elements for images
+            all_found_images = []
+            for elem in search_elements:
+                try:
+                    imgs = elem.find_elements(By.TAG_NAME, 'img')
+                    for img in imgs:
+                        # Get ALL attributes
+                        src = img.get_attribute('src') or ''
+                        data_src = img.get_attribute('data-src') or ''
+                        
+                        # Collect all possible sources
+                        if src and src.strip() and not src.startswith('data:'):
+                            all_found_images.append(src)
+                        if data_src and data_src.strip() and not data_src.startswith('data:'):
+                            all_found_images.append(data_src)
+                except:
+                    continue
+            
+            # Filter and pick the best product image (not logos/banners)
+            product_images = []
+            
+            for img_url in all_found_images:
+                img_url = img_url.strip()
+                
+                # Skip logos, headers, and UI elements
+                skip_patterns = [
+                    'fkheaderlogo', 'logo', 'header', 'banner', 'sprite',
+                    'icon', 'arrow', 'cart', 'badge', 'footer', 'exploreplus',
+                    'fk-p-flap/1620', 'fk-p-flap/530', 'fk-p-flap/520',  # Banner sizes
+                    'batman-returns/batman-returns/p/images'  # UI images
+                ]
+                
+                if any(pattern in img_url.lower() for pattern in skip_patterns):
+                    continue
+                
+                # Clean up URL
+                if img_url.startswith('//'):
+                    img_url = 'https:' + img_url
+                elif img_url.startswith('/'):
+                    img_url = 'https://www.flipkart.com' + img_url
+                
+                # Accept product images only
+                if img_url.startswith('http') and len(img_url) > 10:
+                    # Prefer product image domains
+                    if any(x in img_url.lower() for x in ['rukminim', 'flixcart.com/image', '/image/']):
+                        product_images.append(img_url)
+            
+            # Use first product image if found
+            if product_images:
+                img_src = product_images[0]
+            elif all_found_images:
+                # Fallback to any image if no product images
+                for img_url in all_found_images:
+                    img_url = img_url.strip()
+                    if img_url.startswith('http') and 'logo' not in img_url.lower():
+                        img_src = img_url
+                        break
+            
+            # If found, save it
+            if img_src:
                 item_info['image'] = img_src
-        except:
-            pass
+                logger.info(f"✅ IMAGE: {item_info.get('title', 'Unknown')[:25]} -> {img_src[:50]}")
+            else:
+                logger.warning(f"❌ NO IMG: {item_info.get('title', 'Unknown')[:40]} (searched {len(all_found_images)} images)")
+                    
+        except Exception as e:
+            logger.error(f"Error extracting image: {e}")
         
-        # Extract price (look in parent section)
-        try:
-            # Try to find price near the link
-            parent = item_element.find_element(By.XPATH, './..')
-            price_elem = parent.find_element(By.CSS_SELECTOR, "div[class*='price'], div._30jeq3, div._1vC4OE")
-            price_text = price_elem.text.strip()
-            if price_text and ('₹' in price_text or price_text.replace(',', '').isdigit()):
-                if '₹' not in price_text:
-                    price_text = f'₹{price_text}'
-                item_info['price'] = price_text
-        except:
-            pass
+        # ENHANCED PRICE EXTRACTION - Multiple strategies
+        price_found = False
+        
+        # Strategy 1: Look in immediate parent
+        if not price_found:
+            try:
+                parent = item_element.find_element(By.XPATH, './..')
+                # Try multiple Flipkart price selectors
+                price_selectors = [
+                    "div._30jeq3", "span._30jeq3",  # Flipkart specific
+                    "div._1vC4OE", "span._1vC4OE",  # Flipkart specific
+                    "div._25b18c", "span._25b18c",  # Flipkart specific
+                    "div[class*='_30jeq']", "span[class*='_30jeq']",
+                    "div[class*='price']", "span[class*='price']",
+                ]
+                
+                for selector in price_selectors:
+                    try:
+                        price_elem = parent.find_element(By.CSS_SELECTOR, selector)
+                        price_text = price_elem.text.strip()
+                        if price_text and ('₹' in price_text or price_text.replace(',', '').replace('.', '').isdigit()):
+                            if '₹' not in price_text and price_text.replace(',', '').replace('.', '').isdigit():
+                                price_text = f'₹{price_text}'
+                            item_info['price'] = price_text
+                            price_found = True
+                            break
+                    except:
+                        continue
+            except:
+                pass
+        
+        # Strategy 2: Look in section element
+        if not price_found and section_element:
+            try:
+                # Get all text from section
+                section_text = section_element.text
+                if section_text and '₹' in section_text:
+                    # Extract prices using regex
+                    import re
+                    price_pattern = r'₹[\d,]+(?:\.\d+)?'
+                    prices = re.findall(price_pattern, section_text)
+                    if prices:
+                        item_info['price'] = prices[0]
+                        price_found = True
+            except:
+                pass
+        
+        # Strategy 3: Look for any element with rupee symbol near the link
+        if not price_found:
+            try:
+                # Expand search area
+                ancestor = item_element.find_element(By.XPATH, './ancestor::div[3]')
+                all_text_elems = ancestor.find_elements(By.CSS_SELECTOR, "div, span")
+                
+                for elem in all_text_elems:
+                    try:
+                        text = elem.text.strip()
+                        if text and '₹' in text:
+                            # Verify it looks like a price
+                            import re
+                            if re.search(r'₹\s*[\d,]+', text):
+                                price_match = re.search(r'₹\s*[\d,]+', text)
+                                if price_match:
+                                    item_info['price'] = price_match.group(0).strip()
+                                    price_found = True
+                                    break
+                    except:
+                        continue
+            except:
+                pass
         
         # Extract discount
         try:
             parent = item_element.find_element(By.XPATH, './..')
-            discount_elem = parent.find_element(By.CSS_SELECTOR, "div[class*='badge'], div[class*='discount'], div._3Ay6Sb")
-            discount_text = discount_elem.text.strip()
-            if discount_text and ('%' in discount_text or 'off' in discount_text.lower()):
-                item_info['discount'] = discount_text
+            discount_selectors = [
+                "div._3Ay6Sb", "span._3Ay6Sb",  # Flipkart specific
+                "div[class*='discount']", "span[class*='discount']",
+                "div[class*='off']", "span[class*='off']",
+            ]
+            
+            for selector in discount_selectors:
+                try:
+                    discount_elem = parent.find_element(By.CSS_SELECTOR, selector)
+                    discount_text = discount_elem.text.strip()
+                    if discount_text and ('%' in discount_text or 'off' in discount_text.lower()):
+                        item_info['discount'] = discount_text
+                        break
+                except:
+                    continue
         except:
             pass
         
@@ -1051,7 +1170,7 @@ if __name__ == "__main__":
                 pass
     
     print(f"\n{'='*60}")
-    print(f"🛒 FLIPKART HOMEPAGE - COMPLETE PAGE SCRAPER")
+    print(f"FLIPKART HOMEPAGE - COMPLETE PAGE SCRAPER")
     print(f"{'='*60}")
     print(f"Mode: {'Headless' if headless else 'Visible Browser'}")
     print(f"Max Items Per Section: {max_items}")
@@ -1061,19 +1180,19 @@ if __name__ == "__main__":
     result = scrape_flipkart_homepage_deals(headless=headless, max_items_per_section=max_items)
     
     print(f"\n{'='*60}")
-    print(f"✅ SCRAPING COMPLETE")
+    print(f"SCRAPING COMPLETE")
     print(f"{'='*60}")
     print(f"Total Sections: {result.get('total_sections', 0)}")
     print(f"Total Items: {result.get('total_items', 0)}")
     
     if result.get('sections'):
-        print(f"\n📊 Sections Found:")
+        print(f"\nSections Found:")
         for i, section in enumerate(result['sections'][:5], 1):
             print(f"   {i}. {section['section_title']} ({section['item_count']} items)")
         if len(result['sections']) > 5:
             print(f"   ... and {len(result['sections']) - 5} more sections")
     
-    print(f"\n💾 Saved to: flipkart_homepage_deals.json")
+    print(f"\nSaved to: flipkart_homepage_deals.json")
     print(f"{'='*60}\n")
 
 def extract_product_info_with_price(link_element, parent_element):

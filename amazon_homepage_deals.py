@@ -139,16 +139,21 @@ def scrape_amazon_homepage_deals(headless: bool = True, max_items_per_section: i
                         # Extract items in this section
                         section_items = extract_section_items(section, driver, max_items_per_section)
                         
-                        if section_items and len(section_items) > 0:
+                        # Only add section if it has valid products with titles
+                        valid_items = [item for item in section_items if item.get('title') and len(item.get('title', '')) > 5]
+                        
+                        if valid_items and len(valid_items) > 0:
                             section_data = {
                                 'section_title': section_title,
-                                'item_count': len(section_items),
-                                'items': section_items
+                                'item_count': len(valid_items),
+                                'items': valid_items
                             }
                             
                             all_sections.append(section_data)
                             processed_titles.add(section_title)
-                            logger.info(f"  ✅ Section '{section_title}': {len(section_items)} items")
+                            logger.info(f"  ✅ Section '{section_title}': {len(valid_items)} items")
+                        else:
+                            logger.debug(f"  ⚠️ Skipping '{section_title}': no valid products")
                     except Exception as e:
                         logger.debug(f"  ⚠️ Error processing section: {e}")
                         continue
@@ -162,10 +167,18 @@ def scrape_amazon_homepage_deals(headless: bool = True, max_items_per_section: i
         alternative_sections = extract_sections_from_all_headings(driver, max_items_per_section, processed_titles)
         
         for section in alternative_sections:
-            if section['section_title'] not in processed_titles:
-                all_sections.append(section)
-                processed_titles.add(section['section_title'])
-                logger.info(f"  ✅ Heading section '{section['section_title']}': {section['item_count']} items")
+            # Only add if has valid items and not already processed
+            if section['section_title'] not in processed_titles and section.get('item_count', 0) > 0:
+                # Double check items are valid
+                valid_items = [item for item in section.get('items', []) if item.get('title') and len(item.get('title', '')) > 5]
+                if valid_items:
+                    section['items'] = valid_items
+                    section['item_count'] = len(valid_items)
+                    all_sections.append(section)
+                    processed_titles.add(section['section_title'])
+                    logger.info(f"  ✅ Heading section '{section['section_title']}': {len(valid_items)} items")
+                else:
+                    logger.debug(f"  ⚠️ Skipping '{section['section_title']}': no valid products")
         
         # Strategy 3: Capture any remaining visible products not in sections
         logger.info("🔄 Capturing any remaining products...")
@@ -289,7 +302,13 @@ def extract_item_info(item_element, section_element):
         if link:
             if link.startswith('/'):
                 link = 'https://www.amazon.in' + link
-            item_info['link'] = link
+            # Validate that it's an Amazon link only
+            if 'amazon.in' in link or 'amazon.com' in link:
+                item_info['link'] = link
+            else:
+                # Skip non-Amazon links
+                logger.debug(f"Skipping non-Amazon link: {link}")
+                return None
         
         # Extract title from various sources
         # 1. Try aria-label
@@ -314,12 +333,15 @@ def extract_item_info(item_element, section_element):
             if len(title) > 10 and len(title) < 200:
                 item_info['title'] = title
         
-        # Extract image
+        # Extract image - only accept Amazon images
         try:
             img = item_element.find_element(By.TAG_NAME, 'img')
             img_src = img.get_attribute('src') or ''
-            if img_src and 'amazon' in img_src.lower():
+            # Validate Amazon images only (prevent other platform images)
+            if img_src and ('amazon' in img_src.lower() or 'ssl-images-amazon' in img_src.lower()):
                 item_info['image'] = img_src
+            else:
+                logger.debug(f"Skipping non-Amazon image: {img_src}")
         except:
             pass
         
@@ -531,12 +553,15 @@ def extract_deal_info(card_element, driver):
             except:
                 continue
         
-        # Extract image
+        # Extract image - only accept Amazon images
         try:
             img = card_element.find_element(By.TAG_NAME, "img")
             img_src = img.get_attribute('src') or ''
-            if img_src and 'amazon' in img_src.lower():
+            # Validate Amazon images only
+            if img_src and ('amazon' in img_src.lower() or 'ssl-images-amazon' in img_src.lower()):
                 deal_info['image'] = img_src
+            else:
+                logger.debug(f"Skipping non-Amazon deal image: {img_src}")
         except:
             pass
         
@@ -547,7 +572,11 @@ def extract_deal_info(card_element, driver):
             if link:
                 if link.startswith('/'):
                     link = 'https://www.amazon.in' + link
-                deal_info['link'] = link
+                # Validate Amazon link only
+                if 'amazon.in' in link or 'amazon.com' in link:
+                    deal_info['link'] = link
+                else:
+                    logger.debug(f"Skipping non-Amazon deal link: {link}")
         except:
             pass
         

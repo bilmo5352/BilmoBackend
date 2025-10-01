@@ -310,8 +310,8 @@ def api_status():
             "timestamp": datetime.now().isoformat()
         }), 500
 
-def save_amazon_deals_to_mongodb(homepage_data):
-    """Save Amazon homepage deals to dedicated MongoDB collection"""
+def save_platform_deals_to_mongodb(homepage_data, platform_name):
+    """Save platform homepage deals to unified deals collection"""
     try:
         # Use existing MongoDB connection
         if not search_system.mongodb_manager.client:
@@ -320,12 +320,13 @@ def save_amazon_deals_to_mongodb(homepage_data):
             
         mongodb_client = search_system.mongodb_manager.client
         db = mongodb_client['scraper_db']
-        deals_collection = db['amazon_homepage_deals']
+        deals_collection = db['amazon_homepage_deals']  # Unified collection for all platforms
         
-        # Create document for Amazon deals
+        # Create document for platform deals
         deal_document = {
             "timestamp": datetime.now(),
-            "source": "Amazon India Homepage",
+            "platform": platform_name,  # Platform identifier (Amazon, Myntra, Flipkart, etc.)
+            "source": f"{platform_name} India Homepage",
             "total_sections": homepage_data.get('total_sections', 0),
             "total_items": homepage_data.get('total_items', 0),
             "scrape_type": "complete_homepage",
@@ -337,26 +338,42 @@ def save_amazon_deals_to_mongodb(homepage_data):
             }
         }
         
-        # Insert into dedicated collection
+        # Insert into unified collection
         result = deals_collection.insert_one(deal_document)
-        logger.info(f"✅ Amazon deals saved to collection with ID: {result.inserted_id}")
+        logger.info(f"✅ {platform_name} deals saved to unified collection with ID: {result.inserted_id}")
+        
+        # Convert ObjectId to string for sub-documents
+        parent_doc_id = str(result.inserted_id)
         
         # Also save individual sections for easier querying
         for section in homepage_data.get('sections', []):
+            # Add platform to each item
+            items_with_platform = []
+            for item in section.get('items', []):
+                item_copy = item.copy()
+                item_copy['platform'] = platform_name
+                items_with_platform.append(item_copy)
+            
             section_document = {
                 "timestamp": datetime.now(),
+                "platform": platform_name,  # Platform identifier for differentiation
                 "section_title": section.get('section_title', ''),
                 "item_count": section.get('item_count', 0),
-                "items": section.get('items', []),
-                "parent_document_id": result.inserted_id
+                "items": items_with_platform,
+                "parent_document_id": parent_doc_id  # Use string instead of ObjectId
             }
             deals_collection.insert_one(section_document)
         
         return True
         
     except Exception as e:
-        logger.error(f"❌ Error saving Amazon deals to MongoDB: {e}")
+        logger.error(f"❌ Error saving {platform_name} deals to MongoDB: {e}")
+        logger.exception("Full MongoDB save error:")
         return False
+
+def save_amazon_deals_to_mongodb(homepage_data):
+    """Save Amazon homepage deals to unified deals collection"""
+    return save_platform_deals_to_mongodb(homepage_data, "Amazon")
 
 @app.route('/amazon/deals')
 def get_amazon_deals():
@@ -416,6 +433,110 @@ def get_amazon_deals():
             "success": False,
             "error": str(e),
             "timestamp": datetime.now().isoformat()
+        }), 500
+
+@app.route('/deals/unified')
+def get_unified_deals():
+    """Get deals from unified collection - auto-scrapes if not found"""
+    try:
+        # Use existing MongoDB connection
+        if not search_system.mongodb_manager.client:
+            return jsonify({
+                "success": False,
+                "error": "MongoDB connection not available"
+            }), 500
+        
+        # Get platform filter from query params (optional)
+        platform = request.args.get('platform', None)
+        
+        if not platform:
+            return jsonify({
+                "success": False,
+                "error": "Platform parameter required"
+            }), 400
+        
+        mongodb_client = search_system.mongodb_manager.client
+        db = mongodb_client['scraper_db']
+        deals_collection = db['amazon_homepage_deals']
+        
+        # Build query
+        query = {
+            "scrape_type": "complete_homepage",
+            "platform": platform
+        }
+        
+        # Check if we have recent data (less than 1 hour old)
+        from datetime import timedelta
+        one_hour_ago = datetime.now() - timedelta(hours=1)
+        
+        latest_deal = deals_collection.find_one(
+            {**query, "timestamp": {"$gte": one_hour_ago}},
+            sort=[("timestamp", -1)]
+        )
+        
+        # If found in MongoDB, return it
+        if latest_deal:
+            logger.info(f"✅ Found {platform} deals in MongoDB collection")
+            
+            # Convert ObjectId and timestamp
+            if '_id' in latest_deal:
+                latest_deal['_id'] = str(latest_deal['_id'])
+            if 'timestamp' in latest_deal:
+                latest_deal['timestamp'] = latest_deal['timestamp'].isoformat()
+            if 'parent_document_id' in latest_deal:
+                latest_deal['parent_document_id'] = str(latest_deal['parent_document_id'])
+            
+            return jsonify({
+                "success": True,
+                "data": latest_deal,
+                "source": "mongodb_collection",
+                "cache": True
+            })
+        
+        # Not found in MongoDB - scrape fresh and save
+        logger.info(f"❌ No recent {platform} deals in MongoDB - scraping fresh...")
+        
+        # Import the appropriate scraper
+        if platform == "Amazon":
+            from amazon_homepage_deals import scrape_amazon_homepage_deals
+            deals_data = scrape_amazon_homepage_deals(headless=True, max_items_per_section=10)
+        elif platform == "Flipkart":
+            from flipkart_homepage_deals import scrape_flipkart_homepage_deals
+            deals_data = scrape_flipkart_homepage_deals(headless=True, max_items_per_section=20)
+        elif platform == "Myntra":
+            # For now, return error for Myntra
+            return jsonify({
+                "success": False,
+                "error": "Myntra scraper not available yet",
+                "data": None
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": f"Unknown platform: {platform}"
+            }), 400
+        
+        # Ensure timestamp is string
+        if 'timestamp' in deals_data and not isinstance(deals_data['timestamp'], str):
+            deals_data['timestamp'] = deals_data['timestamp'].isoformat() if hasattr(deals_data['timestamp'], 'isoformat') else str(deals_data['timestamp'])
+        
+        # Save to MongoDB
+        save_platform_deals_to_mongodb(deals_data, platform)
+        logger.info(f"✅ Scraped and saved {platform} deals to MongoDB")
+        
+        return jsonify({
+            "success": True,
+            "data": deals_data,
+            "source": "fresh_scrape",
+            "cache": False
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Error getting unified deals: {e}")
+        logger.exception("Full error:")
+        return jsonify({
+            "success": False,
+            "error": str(e)
         }), 500
 
 @app.route('/amazon/deals/collection')
@@ -652,19 +773,20 @@ def get_flipkart_deals():
         from flipkart_homepage_deals import scrape_flipkart_homepage_deals
         
         deals_data = scrape_flipkart_homepage_deals(headless=True, max_items_per_section=20)
+        
+        # Ensure timestamp is string (not datetime object)
+        if 'timestamp' in deals_data and not isinstance(deals_data['timestamp'], str):
+            deals_data['timestamp'] = deals_data['timestamp'].isoformat() if hasattr(deals_data['timestamp'], 'isoformat') else str(deals_data['timestamp'])
+        
         deals_data['source'] = 'fresh'
         
-        # Save to MongoDB
-        if search_system.mongodb_manager.collection is not None:
-            try:
-                # Save sections to MongoDB
-                for section in deals_data.get('sections', []):
-                    section['platform'] = 'Flipkart'
-                    section['scraped_at'] = datetime.now()
-                    search_system.mongodb_manager.collection.insert_one(section)
-                logger.info("💾 Saved Flipkart deals to MongoDB")
-            except Exception as e:
-                logger.warning(f"Failed to save deals to MongoDB: {e}")
+        # Save to unified deals collection (same as Amazon)
+        try:
+            save_platform_deals_to_mongodb(deals_data, "Flipkart")
+            logger.info(f"✅ Saved {deals_data.get('total_sections', 0)} Flipkart sections to unified deals collection")
+        except Exception as e:
+            logger.warning(f"Failed to save Flipkart deals to MongoDB: {e}")
+            logger.exception("Full MongoDB save error:")
         
         return jsonify({
             "success": True,
@@ -674,6 +796,7 @@ def get_flipkart_deals():
         
     except Exception as e:
         logger.error(f"❌ Flipkart deals error: {e}")
+        logger.exception("Full Flipkart error:")
         return jsonify({
             "success": False,
             "error": str(e)
@@ -878,18 +1001,12 @@ def get_myntra_deals():
         # from myntra_homepage_deals import scrape_myntra_homepage_deals
         # deals_data = scrape_myntra_homepage_deals(headless=True, max_items_per_section=20)
         
-        # Save to MongoDB
-        if search_system.mongodb_manager.collection is not None:
-            try:
-                # Save sections to MongoDB
-                for section in deals_data.get('sections', []):
-                    section_copy = section.copy()
-                    section_copy['platform'] = 'Myntra'
-                    section_copy['scraped_at'] = datetime.now().isoformat()
-                    search_system.mongodb_manager.collection.insert_one(section_copy)
-                logger.info("💾 Saved Myntra deals to MongoDB")
-            except Exception as e:
-                logger.warning(f"Failed to save deals to MongoDB: {e}")
+        # Save to unified deals collection (same as Amazon)
+        try:
+            save_platform_deals_to_mongodb(deals_data, "Myntra")
+            logger.info(f"✅ Saved {deals_data.get('total_sections', 0)} Myntra sections to unified deals collection")
+        except Exception as e:
+            logger.warning(f"Failed to save Myntra deals to MongoDB: {e}")
         
         return jsonify({
             "success": True,

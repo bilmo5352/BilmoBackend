@@ -271,3 +271,4 @@ Your Amazon deals collection is now ready!
 
 **Your Amazon homepage deals will be automatically stored and organized in MongoDB!** 🚀
 
+

@@ -170,3 +170,4 @@ GET /amazon/deals/view          # HTML viewer
 
 **The deals button will scrape the entire Amazon homepage and display all products organized by sections!** 🛒✨
 
+

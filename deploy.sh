@@ -48,3 +48,4 @@ echo "To view logs: docker-compose logs -f api"
 echo "To stop services: docker-compose down"
 echo
 
+

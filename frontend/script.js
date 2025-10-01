@@ -347,12 +347,37 @@ function createProductCard(product) {
 
 async function loadMyntraDeals() {
     setDealsButtonLoading(true, myntraDealsButton);
-    setLoading(true, 'Scraping Myntra Homepage...');
+    setLoading(true, 'Loading Myntra deals from collection...');
     hideMessages();
     hideResults();
     
     try {
-        console.log('👗 Loading Myntra homepage deals...');
+        console.log('👗 Loading Myntra deals from unified collection...');
+        
+        // First try to get from unified collection
+        const unifiedResponse = await fetch(`${SMART_API_BASE_URL}/deals/unified?platform=Myntra`, {
+            method: 'GET',
+            mode: 'cors',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const unifiedResult = await unifiedResponse.json();
+        console.log('👗 Unified collection response:', unifiedResult);
+        
+        // If found in unified collection, display it
+        if (unifiedResult.success && unifiedResult.data) {
+            displayMyntraDeals(unifiedResult.data);
+            showSuccess(`Found ${unifiedResult.data.total_sections || 0} Myntra sections with ${unifiedResult.data.total_items || 0} deals from collection!`);
+            setDealsButtonLoading(false, myntraDealsButton);
+            setLoading(false);
+            return;
+        }
+        
+        // If not found, scrape fresh
+        console.log('🕷️ No cached data, scraping fresh Myntra homepage...');
+        setLoading(true, 'Scraping Myntra Homepage...');
         
         const response = await fetch(`${SMART_API_BASE_URL}/myntra/deals`, {
             method: 'GET',
@@ -559,12 +584,37 @@ function hideResults() {
 // Amazon Deals Functions
 async function loadAmazonDeals() {
     setDealsButtonLoading(true);
-    setLoading(true, 'Scraping Amazon Homepage...');
+    setLoading(true, 'Loading Amazon deals from collection...');
     hideMessages();
     hideResults();
     
     try {
-        console.log('🛒 Loading Amazon homepage deals...');
+        console.log('🛒 Loading Amazon deals from unified collection...');
+        
+        // First try to get from unified collection
+        const unifiedResponse = await fetch(`${SMART_API_BASE_URL}/deals/unified?platform=Amazon`, {
+            method: 'GET',
+            mode: 'cors',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const unifiedResult = await unifiedResponse.json();
+        console.log('🛒 Unified collection response:', unifiedResult);
+        
+        // If found in unified collection, display it
+        if (unifiedResult.success && unifiedResult.data) {
+            displayAmazonDeals(unifiedResult.data);
+            showSuccess(`Found ${unifiedResult.data.total_sections || 0} Amazon sections with ${unifiedResult.data.total_items || 0} deals from collection!`);
+            setDealsButtonLoading(false);
+            setLoading(false);
+            return;
+        }
+        
+        // If not found, scrape fresh
+        console.log('🕷️ No cached data, scraping fresh Amazon homepage...');
+        setLoading(true, 'Scraping Amazon Homepage...');
         
         const response = await fetch(`${SMART_API_BASE_URL}/amazon/deals`, {
             method: 'GET',
@@ -594,12 +644,37 @@ async function loadAmazonDeals() {
 
 async function loadFlipkartDeals() {
     setDealsButtonLoading(true, flipkartDealsButton);
-    setLoading(true, 'Scraping Flipkart Homepage...');
+    setLoading(true, 'Loading Flipkart deals from collection...');
     hideMessages();
     hideResults();
     
     try {
-        console.log('🛍️ Loading Flipkart homepage deals...');
+        console.log('🛍️ Loading Flipkart deals from unified collection...');
+        
+        // First try to get from unified collection
+        const unifiedResponse = await fetch(`${SMART_API_BASE_URL}/deals/unified?platform=Flipkart`, {
+            method: 'GET',
+            mode: 'cors',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const unifiedResult = await unifiedResponse.json();
+        console.log('🛍️ Unified collection response:', unifiedResult);
+        
+        // If found in unified collection, display it
+        if (unifiedResult.success && unifiedResult.data) {
+            displayFlipkartDeals(unifiedResult.data);
+            showSuccess(`Found ${unifiedResult.data.total_sections || 0} Flipkart sections with ${unifiedResult.data.total_items || 0} deals from collection!`);
+            setDealsButtonLoading(false, flipkartDealsButton);
+            setLoading(false);
+            return;
+        }
+        
+        // If not found, scrape fresh
+        console.log('🕷️ No cached data, scraping fresh Flipkart homepage...');
+        setLoading(true, 'Scraping Flipkart Homepage...');
         
         const response = await fetch(`${SMART_API_BASE_URL}/flipkart/deals`, {
             method: 'GET',
@@ -647,6 +722,11 @@ function displayFlipkartDeals(dealsData) {
     if (sections.length === 0) {
         showError('No Flipkart deals sections found');
         return;
+    }
+    
+    // Debug: Log sample items
+    if (sections.length > 0 && sections[0].items && sections[0].items.length > 0) {
+        console.log('📦 Sample Flipkart item:', sections[0].items[0]);
     }
     
     // Create results display
@@ -807,12 +887,37 @@ function createSectionItemCard(item) {
 
 async function loadMyntraDeals() {
     setDealsButtonLoading(true, myntraDealsButton);
-    setLoading(true, 'Scraping Myntra Homepage...');
+    setLoading(true, 'Loading Myntra deals from collection...');
     hideMessages();
     hideResults();
     
     try {
-        console.log('👗 Loading Myntra homepage deals...');
+        console.log('👗 Loading Myntra deals from unified collection...');
+        
+        // First try to get from unified collection
+        const unifiedResponse = await fetch(`${SMART_API_BASE_URL}/deals/unified?platform=Myntra`, {
+            method: 'GET',
+            mode: 'cors',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const unifiedResult = await unifiedResponse.json();
+        console.log('👗 Unified collection response:', unifiedResult);
+        
+        // If found in unified collection, display it
+        if (unifiedResult.success && unifiedResult.data) {
+            displayMyntraDeals(unifiedResult.data);
+            showSuccess(`Found ${unifiedResult.data.total_sections || 0} Myntra sections with ${unifiedResult.data.total_items || 0} deals from collection!`);
+            setDealsButtonLoading(false, myntraDealsButton);
+            setLoading(false);
+            return;
+        }
+        
+        // If not found, scrape fresh
+        console.log('🕷️ No cached data, scraping fresh Myntra homepage...');
+        setLoading(true, 'Scraping Myntra Homepage...');
         
         const response = await fetch(`${SMART_API_BASE_URL}/myntra/deals`, {
             method: 'GET',
@@ -940,12 +1045,37 @@ function createDealCard(deal) {
 
 async function loadMyntraDeals() {
     setDealsButtonLoading(true, myntraDealsButton);
-    setLoading(true, 'Scraping Myntra Homepage...');
+    setLoading(true, 'Loading Myntra deals from collection...');
     hideMessages();
     hideResults();
     
     try {
-        console.log('👗 Loading Myntra homepage deals...');
+        console.log('👗 Loading Myntra deals from unified collection...');
+        
+        // First try to get from unified collection
+        const unifiedResponse = await fetch(`${SMART_API_BASE_URL}/deals/unified?platform=Myntra`, {
+            method: 'GET',
+            mode: 'cors',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const unifiedResult = await unifiedResponse.json();
+        console.log('👗 Unified collection response:', unifiedResult);
+        
+        // If found in unified collection, display it
+        if (unifiedResult.success && unifiedResult.data) {
+            displayMyntraDeals(unifiedResult.data);
+            showSuccess(`Found ${unifiedResult.data.total_sections || 0} Myntra sections with ${unifiedResult.data.total_items || 0} deals from collection!`);
+            setDealsButtonLoading(false, myntraDealsButton);
+            setLoading(false);
+            return;
+        }
+        
+        // If not found, scrape fresh
+        console.log('🕷️ No cached data, scraping fresh Myntra homepage...');
+        setLoading(true, 'Scraping Myntra Homepage...');
         
         const response = await fetch(`${SMART_API_BASE_URL}/myntra/deals`, {
             method: 'GET',
