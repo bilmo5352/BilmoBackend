@@ -1,0 +1,20 @@
+{
+  "products": [
+    {
+      "title": "VISMIINTREND",
+      "name": "VISMIINTREND",
+      "price": "Rs. 1249",
+      "link": "https://www.myntra.com/backpacks/vismiintrend/vismiintrend-women-tan-pu-leather-13-laptop-backpack-handbag/18944620/buy",
+      "rating": "1.5",
+      "image_url": "https://assets.myntassets.com/dpr_2,q_60,w_210,c_limit,fl_progressive/assets/images/18944620/2024/7/4/6fdbbf59-d840-4e07-bfcc-0b2c582a30261720095344181-VISMIINTREND-Women-Backpack-with-Sling-2441720095343642-1.jpg",
+      "image_alt": "VISMIINTREND Women Tan PU Leather 13\" Laptop Backpack Handbag",
+      "images": [
+        {
+          "url": "https://assets.myntassets.com/dpr_2,q_60,w_210,c_limit,fl_progressive/assets/images/18944620/2024/7/4/6fdbbf59-d840-4e07-bfcc-0b2c582a30261720095344181-VISMIINTREND-Women-Backpack-with-Sling-2441720095343642-1.jpg",
+          "alt": "VISMIINTREND Women Tan PU Leather 13\" Laptop Backpack Handbag",
+          "thumbnail": "https://assets.myntassets.com/dpr_2,q_60,w_210,c_limit,fl_progressive/assets/images/18944620/2024/7/4/6fdbbf59-d840-4e07-bfcc-0b2c582a30261720095344181-VISMIINTREND-Women-Backpack-with-Sling-2441720095343642-1.jpg"
+        }
+      ]
+    }
+  ]
+}
