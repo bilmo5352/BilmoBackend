@@ -1,4 +1,4 @@
-# Multi-stage build for optimized production image
+# Fixed multi-stage Dockerfile for BilmoBackend
 FROM python:3.11-slim as builder
 
 # Set working directory
@@ -16,7 +16,7 @@ RUN pip install --no-cache-dir --user -r requirements.txt
 # Production stage
 FROM python:3.11-slim
 
-# Install runtime dependencies including Chrome for Selenium
+# Install runtime dependencies including Chrome
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     gnupg \
@@ -54,40 +54,30 @@ WORKDIR /app
 COPY --from=builder /root/.local /root/.local
 ENV PATH=/root/.local/bin:$PATH
 
-# Copy application code
-COPY app.py .
-COPY smart_api.py .
-COPY amazon_search.py .
-COPY amazon_homepage_deals.py .
-COPY flipkart_search.py .
-COPY meesho_search.py .
-COPY myntra_search.py .
-COPY intelligent_search_system.py .
-COPY unified_mongodb_manager.py .
-COPY requirements.txt .
+# Copy ALL application files (not just specific ones)
+COPY . .
 
 # Create necessary directories
-RUN mkdir -p html_files logs templates && \
-    chmod 755 html_files logs
+RUN mkdir -p html_files logs templates static \
+    && chmod 755 html_files logs
 
 # Environment variables
 ENV PYTHONUNBUFFERED=1 \
-    FLASK_APP=app.py \
+    FLASK_APP=smart_api.py \
     FLASK_ENV=production \
-    DISPLAY=:99 \
     PYTHONDONTWRITEBYTECODE=1
 
 # Create non-root user for security
-RUN useradd -m -u 1000 appuser && \
-    chown -R appuser:appuser /app
+RUN useradd -m -u 1000 appuser \
+    && chown -R appuser:appuser /app
 USER appuser
 
 # Expose Flask port
 EXPOSE 5000
 
-# Health check
+# Fixed health check using python instead of curl
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:5000/health || exit 1
+    CMD python -c "import requests; requests.get('http://localhost:5000/status')" || exit 1
 
-# Run the application
+# DECISION: Run smart_api.py (choose ONE)
 CMD ["python", "smart_api.py"]
