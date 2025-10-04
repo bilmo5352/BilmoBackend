@@ -1,12 +1,11 @@
 # Dockerfile for BilmoBackend (single-stage, no multi-stage)
-
 # Use a slim Python base image
 FROM python:3.11-slim
 
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies (including Chrome for Selenium)
+# Install system dependencies (including Chrome for Selenium
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
     gcc \

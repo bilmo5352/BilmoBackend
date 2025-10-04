@@ -11,13 +11,10 @@ pymongo>=4.0.0
 
 google-genai>=0.3.0
 
-# Date and Time Processing
 python-dateutil>=2.8.2
 
-# User Agent and HTTP Utilities
 fake-useragent>=1.4.0
 
-# Standard Library Extensions
 urllib3>=2.0.0
 
 # Development and Testing (optional)
