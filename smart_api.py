@@ -292,35 +292,18 @@ def get_cached_result(result_id):
 
 @app.route('/status')
 def api_status():
-    """Check API and database status"""
     try:
-        # Test MongoDB connection
         mongodb_status = search_system.mongodb_manager.connect()
-        
-        # Get database stats
         db_stats = search_system.mongodb_manager.get_database_stats()
-        
-        status = {
-            "success": True,
-            "api_status": "online",
-            "mongodb_status": "connected" if mongodb_status else "disconnected",
-            "timestamp": datetime.now().isoformat(),
-            "cache_expiry_hours": search_system.cache_expiry_hours
-        }
-        
-        if db_stats:
-            status["database_stats"] = db_stats
-        
-        return jsonify(status)
-        
-    except Exception as e:
-        logger.error(f"❌ Status check error: {e}")
-        return jsonify({
-            "success": False,
-            "api_status": "error",
-            "error": str(e),
-            "timestamp": datetime.now().isoformat()
-        }), 500
+    except Exception:
+        mongodb_status = False
+        db_stats = {}
+    return jsonify({
+      "success": True,
+      "api_status": "online",
+      "mongodb_status": "connected" if mongodb_status else "disconnected",
+      "database_stats": db_stats
+    })
 
 def save_platform_deals_to_mongodb(homepage_data, platform_name):
     """Save platform homepage deals to unified deals collection"""
