@@ -23,7 +23,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install runtime dependencies including Chrome for Selenium
+# Install runtime deps including Chrome
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
     wget gnupg curl ca-certificates xdg-utils \
@@ -36,7 +36,7 @@ RUN apt-get update \
  && rm /tmp/chrome.deb \
  && rm -rf /var/lib/apt/lists/*
 
-# Copy Python dependencies from builder
+# Copy Python site-packages and scripts from builder
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
@@ -61,13 +61,9 @@ USER appuser
 # Expose Flask port
 EXPOSE 5000
 
-# Health check via Python requests
+# Healthcheck using JSON array form
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD python - << 'EOF'
-import requests, sys
-r = requests.get("http://localhost:5000/status")
-sys.exit(0 if r.status_code==200 else 1)
-EOF
+  CMD ["python", "-c", "import requests,sys; r=requests.get('http://localhost:5000/status'); sys.exit(0 if r.status_code==200 else 1)"]
 
 # Run the Smart API
 CMD ["python", "smart_api.py"]
