@@ -295,7 +295,7 @@ def api_status():
     return jsonify({"status": "ok"}), 200
 
 @app.route('/health')
-def api_status():
+def api_health():
     try:
         mongodb_status = search_system.mongodb_manager.connect()
         db_stats = search_system.mongodb_manager.get_database_stats()
