@@ -65,9 +65,7 @@ USER appuser
 # Expose the Flask port
 EXPOSE 5000
 
-# Healthcheck using Python (requests must be in requirements.txt)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD ["python", "-c", "import requests,sys; r=requests.get('http://localhost:5000/status'); sys.exit(0 if r.status_code==200 else 1)"]
+HEALTHCHECK CMD curl -f http://localhost:5000/status || exit 1
 
 # Command to run the Smart API
 CMD ["python", "smart_api.py"]
