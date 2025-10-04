@@ -21,7 +21,7 @@ startCommand = "python smart_api.py"
 
 # Health check configuration
 healthcheckPath = "/status"
-healthcheckTimeout = 30
+healthcheckTimeout = 60
 
 # Restart policy configuration
 restartPolicyType = "ON_FAILURE"
