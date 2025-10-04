@@ -45,6 +45,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application code
 COPY . .
 
+# Install requests explicitly (ensures healthcheck works)
+RUN pip install --no-cache-dir requests
+
 # Create necessary directories
 RUN mkdir -p html_files logs templates static \
  && chmod 755 html_files logs
