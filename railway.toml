@@ -1,0 +1,42 @@
+# Railway.toml configuration for BilmoBackend Flask application
+# This file configures Railway deployment settings
+
+[build]
+# Use Dockerfile for building the container
+builder = "DOCKERFILE"
+
+# Optional: Specify custom dockerfile path if not using default "Dockerfile"
+# dockerfilePath = "Dockerfile"
+
+# Watch patterns to trigger deployment on changes
+watchPatterns = [
+    "**/*.py",
+    "requirements.txt", 
+    "Dockerfile"
+]
+
+[deploy]
+# Start command for the Flask application
+startCommand = "python smart_api.py"
+
+# Health check configuration
+healthcheckPath = "/status"
+healthcheckTimeout = 30
+
+# Restart policy configuration
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+# Resource configuration (optional)
+# numReplicas = 1
+
+# Environment-specific overrides
+[environments.production.deploy]
+# Production-specific settings
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
+# numReplicas = 2
+
+# Development environment settings  
+[environments.development.deploy]
+restartPolicyType = "NEVER"
