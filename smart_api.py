@@ -1097,13 +1097,7 @@ def cleanup():
 atexit.register(cleanup)
 
 if __name__ == '__main__':
-    logger.info("🚀 Starting Smart E-commerce Search API...")
-    logger.info("📍 Endpoints:")
-    logger.info("   GET  /search?q=<query>&force_refresh=<bool>")
-    logger.info("   POST /search (JSON body)")
-    logger.info("   GET  /history?limit=<int>")
-    logger.info("   GET  /cached/<id>")
-    logger.info("   GET  /status")
-    
-    # Start the Flask app
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    import os
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
+
