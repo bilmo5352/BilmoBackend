@@ -289,8 +289,12 @@ def get_cached_result(result_id):
             "error": str(e),
             "timestamp": datetime.now().isoformat()
         }), 500
-
+        
 @app.route('/status')
+def api_status():
+    return jsonify({"status": "ok"}), 200
+
+@app.route('/health')
 def api_status():
     try:
         mongodb_status = search_system.mongodb_manager.connect()
